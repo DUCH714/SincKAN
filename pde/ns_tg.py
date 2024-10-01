@@ -19,6 +19,8 @@ from networks import get_network
 from utils import normalization
 
 parser = argparse.ArgumentParser(description="SincKAN")
+parser.add_argument("--mode", type=str, default='train', help="mode of the network, "
+                                                              "train: start training, eval: evaluation")
 parser.add_argument("--datatype", type=str, default='ns_tg', help="type of data")
 parser.add_argument("--npoints", type=int, default=100, help="the number of total dataset")
 parser.add_argument("--ntest", type=int, default=100, help="the number of testing dataset")
@@ -38,6 +40,7 @@ parser.add_argument("--features", type=int, default=100, help='width of the netw
 parser.add_argument("--layers", type=int, default=10, help='depth of the network')
 parser.add_argument("--len_h", type=int, default=1, help='lenth of k for sinckan')
 parser.add_argument("--init_h", type=float, default=2.0, help='initial value of h')
+parser.add_argument("--decay", type=str, default='inverse', help='decay type for h')
 parser.add_argument("--embed_feature", type=int, default=10, help='embedding features of the modified MLP')
 parser.add_argument("--device", type=int, default=3, help="cuda number")
 args = parser.parse_args()
@@ -156,10 +159,6 @@ def train(key):
     u0 = UU[:, :, 0:1].reshape(-1, 1)
     v0 = VV[:, :, 0:1].reshape(-1, 1)
     ob_0 = np.concatenate([x0, y0, t0, u0, v0], -1)
-    # eps=1e-4
-    # trans = lambda x: np.log((x-lowb+eps)/(upb+eps-x))
-    # x_train = trans(x_train)
-    # x_test = trans(x_test)
 
     ob_xyt = np.concatenate([x_train, y_train, t_train], -1)
 
@@ -206,13 +205,13 @@ def train(key):
             keys = random.split(keys[-1], 2)
             input_points = random.choice(keys[0], ob_xyt, shape=(N_train,), replace=False)
             u_pred = vmap(u_net, (None, 0, 0, None, None))(model, x1_test[:, 0], x2_test[:, 0], T_end,
-                                                                 frozen_para)
+                                                           frozen_para)
             train_mse_error_u = jnp.mean((u_pred.flatten() - u_test.flatten()) ** 2)
             train_relative_error_u = jnp.linalg.norm(u_pred.flatten() - u_test.flatten()) / jnp.linalg.norm(
                 u_test.flatten())
 
             v_pred = vmap(v_net, (None, 0, 0, None, None))(model, x1_test[:, 0], x2_test[:, 0], T_end,
-                                                                 frozen_para)
+                                                           frozen_para)
             train_mse_error_v = jnp.mean((v_pred.flatten() - v_test.flatten()) ** 2)
             train_relative_error_v = jnp.linalg.norm(v_pred.flatten() - v_test.flatten()) / jnp.linalg.norm(
                 v_test.flatten())
@@ -223,19 +222,15 @@ def train(key):
     avg_time = np.mean(np.array(T))
     print(f'time: {1 / avg_time:.2e}ite/s')
 
-    u_pred = vmap(u_net, (None, 0, 0, None, None))(model, x1_test[:, 0], x2_test[:, 0], T_end,
-                                                         frozen_para)
+    u_pred = vmap(u_net, (None, 0, 0, None, None))(model, x1_test[:, 0], x2_test[:, 0], T_end, frozen_para)
     train_mse_error_u = jnp.mean((u_pred.flatten() - u_test.flatten()) ** 2)
     train_relative_error_u = jnp.linalg.norm(u_pred.flatten() - u_test.flatten()) / jnp.linalg.norm(
         u_test.flatten())
-
-    v_pred = vmap(v_net, (None, 0, 0, None, None))(model, x1_test[:, 0], x2_test[:, 0], T_end,
-                                                         frozen_para)
+    v_pred = vmap(v_net, (None, 0, 0, None, None))(model, x1_test[:, 0], x2_test[:, 0], T_end, frozen_para)
     train_mse_error_v = jnp.mean((v_pred.flatten() - v_test.flatten()) ** 2)
     train_relative_error_v = jnp.linalg.norm(v_pred.flatten() - v_test.flatten()) / jnp.linalg.norm(
         v_test.flatten())
-
-    print(f'ite:{j},mse_u:{train_mse_error_u:.2e},relative_u:{train_relative_error_u:.2e},'
+    print(f'ite:{ite * N_epochs},mse_u:{train_mse_error_u:.2e},relative_u:{train_relative_error_u:.2e},'
           f'mse_v:{train_mse_error_v:.2e},relative_v:{train_relative_error_v:.2e}')
 
     # save model and results
@@ -261,42 +256,63 @@ def train(key):
 
 def eval(key):
     # Generate sample data
+    N_t = 11
+    T_end = 0.1
+    Re = 400
+    nu = 1 / Re
     interval = args.interval.split(',')
     lowb, upb = float(interval[0]), float(interval[1])
     interval = [lowb, upb]
-    x_train = np.linspace(lowb, upb, num=args.npoints)[:, None]
-    x_test = np.linspace(lowb, upb, num=args.ntest)[:, None]
+    x1_test, x2_test = np.meshgrid(*[np.linspace(lowb, upb, num=args.ntest)] * 2)
     generate_data = get_data(args.datatype)
-    y_train = generate_data(x_train, alpha=args.alpha)
-    # Add noise
-    if args.noise == 1:
-        sigma = 0.1
-        y_target = y_train.copy()
-        y_train += np.random.normal(0, sigma, y_train.shape)
+    u_test, v_test, p_test = generate_data(x1_test, x2_test, T_end, nu=nu)
 
-    y_test = generate_data(x_test, alpha=args.alpha)
-    input_dim = 1
-    output_dim = 1
+    x1_test = x1_test.reshape(-1, 1)
+    x2_test = x2_test.reshape(-1, 1)
+
+    input_dim = 3
+    output_dim = 3
     # Choose the model
+    normalizer = normalization(x1_test, args.normalization)
     keys = random.split(key, 2)
-    model = get_network(args, input_dim, output_dim, interval, keys)
+    model = get_network(args, input_dim, output_dim, interval, normalizer, keys)
     frozen_para = model.get_frozen_para()
     path = f'{args.datatype}_{args.network}_{args.seed}.eqx'
     model = eqx.tree_deserialise_leaves(path, model)
 
-    y_pred = vmap(net, (None, 0, None))(model, x_test[:, 0], frozen_para)
-    mse_error = jnp.mean((y_pred.flatten() - y_test.flatten()) ** 2)
-    relative_error = jnp.linalg.norm(y_pred.flatten() - y_test.flatten()) / jnp.linalg.norm(y_test.flatten())
-    print(f'mse: {mse_error},relative: {relative_error}')
+    u_pred = vmap(u_net, (None, 0, 0, None, None))(model, x1_test[:, 0], x2_test[:, 0], T_end, frozen_para)
+    train_mse_error_u = jnp.mean((u_pred.flatten() - u_test.flatten()) ** 2)
+    train_relative_error_u = jnp.linalg.norm(u_pred.flatten() - u_test.flatten()) / jnp.linalg.norm(
+        u_test.flatten())
+    v_pred = vmap(v_net, (None, 0, 0, None, None))(model, x1_test[:, 0], x2_test[:, 0], T_end, frozen_para)
+    train_mse_error_v = jnp.mean((v_pred.flatten() - v_test.flatten()) ** 2)
+    train_relative_error_v = jnp.linalg.norm(v_pred.flatten() - v_test.flatten()) / jnp.linalg.norm(
+        v_test.flatten())
+    print(f'mse_u:{train_mse_error_u:.2e},relative_u:{train_relative_error_u:.2e},'
+          f'mse_v:{train_mse_error_v:.2e},relative_v:{train_relative_error_v:.2e}')
 
     plt.figure(figsize=(10, 5))
-    plt.plot(x_test, y_test, 'r', label='Original Data')
-    plt.plot(x_test, y_pred, 'b-', label='SincKAN')
-    plt.title('Comparison of SincKAN and MLP Interpolations f(x)')
-    plt.xlabel('x')
-    plt.ylabel('f(x)')
-    plt.legend()
-    path = f'{args.datatype}_{args.network}_{args.seed}.png'
+    plt.contourf(x1_test.reshape(100, 100), x2_test.reshape(100, 100), u_test.reshape(100, 100))
+    plt.title('target')
+    path = f'{args.datatype}_{args.network}_{args.seed}_test_u.png'
+    plt.savefig(path)
+
+    plt.figure(figsize=(10, 5))
+    plt.contourf(x1_test.reshape(100, 100), x2_test.reshape(100, 100), u_pred.reshape(100, 100))
+    plt.title('prediction')
+    path = f'{args.datatype}_{args.network}_{args.seed}_pred_u.png'
+    plt.savefig(path)
+
+    plt.figure(figsize=(10, 5))
+    plt.contourf(x1_test.reshape(100, 100), x2_test.reshape(100, 100), v_test.reshape(100, 100))
+    plt.title('target')
+    path = f'{args.datatype}_{args.network}_{args.seed}_test_v.png'
+    plt.savefig(path)
+
+    plt.figure(figsize=(10, 5))
+    plt.contourf(x1_test.reshape(100, 100), x2_test.reshape(100, 100), v_pred.reshape(100, 100))
+    plt.title('prediction')
+    path = f'{args.datatype}_{args.network}_{args.seed}_pred_v.png'
     plt.savefig(path)
 
 
@@ -304,4 +320,7 @@ if __name__ == "__main__":
     seed = args.seed
     np.random.seed(seed)
     key = random.PRNGKey(seed)
-    train(key)
+    if args.mode == 'train':
+        train(key)
+    elif args.mode == 'eval':
+        eval(key)

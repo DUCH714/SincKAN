@@ -19,6 +19,8 @@ from networks import get_network
 from utils import normalization
 
 parser = argparse.ArgumentParser(description="SincKAN")
+parser.add_argument("--mode", type=str, default='train', help="mode of the network, "
+                                                              "train: start training, eval: evaluation")
 parser.add_argument("--datatype", type=str, default='nonlinear', help="type of data")
 parser.add_argument("--npoints", type=int, default=1000, help="the number of total dataset")
 parser.add_argument("--ntest", type=int, default=1000, help="the number of testing dataset")
@@ -38,6 +40,7 @@ parser.add_argument("--features", type=int, default=100, help='width of the netw
 parser.add_argument("--layers", type=int, default=10, help='depth of the network')
 parser.add_argument("--len_h", type=int, default=1, help='lenth of k for sinckan')
 parser.add_argument("--init_h", type=float, default=2.0, help='lenth of k for sinckan')
+parser.add_argument("--decay", type=str, default='inverse', help='decay type for h')
 parser.add_argument("--embed_feature", type=int, default=10, help='embedding features of the modified MLP')
 parser.add_argument("--alpha", type=float, default=100, help='boundary layer parameters')
 parser.add_argument("--device", type=int, default=3, help="cuda number")
@@ -63,10 +66,10 @@ def residual(model, x, frozen_para):
     :param alpha:
     :return:
     '''
-    u = net(model,x,frozen_para)
+    u = net(model, x, frozen_para)
     u_x = grad(net, argnums=1)(model, x, frozen_para)
     u_xx = grad(grad(net, argnums=1), argnums=1)(model, x, frozen_para)
-    f = - u_xx + u_x / x + u / x**2 - f_fun(x)
+    f = - u_xx + u_x / x + u / x ** 2 - f_fun(x)
     return f
 
 
@@ -75,7 +78,7 @@ def compute_loss(model, ob_x, ob_sup, frozen_para):
     r = (res ** 2).mean()
     ob_b = vmap(net, (None, 0, None))(model, ob_sup[:, 0], frozen_para)
     ob_b_x = vmap(grad(net, argnums=1), (None, 0, None))(model, ob_sup[:, 0], frozen_para)
-    l_b = (ob_b[0]-2*ob_b_x[0]-1)**2+(3*ob_b[1]+ob_b_x[1]-9)**2
+    l_b = (ob_b[0] - 2 * ob_b_x[0] - 1) ** 2 + (3 * ob_b[1] + ob_b_x[1] - 9) ** 2
     return r + 100 * l_b
 
 
@@ -101,12 +104,8 @@ def train(key):
     y_train = generate_data(x_train)
 
     y_test = generate_data(x_test)
-    # eps=1e-4
-    # trans = lambda x: np.log((x-lowb+eps)/(upb+eps-x))
-    # x_train = trans(x_train)
-    # x_test = trans(x_test)
     normalizer = normalization(x_train, args.normalization)
-    ob_x = x_train  # np.concatenate([x_train, y_train], -1)
+    ob_x = x_train
     index_b = [0, -1]
     x_b = x_train[index_b, :]
     y_b = y_train[index_b, :]
@@ -118,6 +117,7 @@ def train(key):
     keys = random.split(key, 2)
     model = get_network(args, input_dim, output_dim, interval, normalizer, keys)
     frozen_para = model.get_frozen_para()
+
     # Hyperparameters
     N_train = args.ntrain
     N_epochs = args.epochs
@@ -128,8 +128,7 @@ def train(key):
     N_drop = 10000
     gamma = 0.95
     sc = optax.exponential_decay(learning_rate, N_drop, gamma)
-    optim = optax.lion(learning_rate=sc)
-    # optim = optax.adamw(learning_rate=sc)
+    optim = optax.adam(learning_rate=sc)
     opt_state = optim.init(eqx.filter(model, eqx.is_array))
 
     keys = random.split(keys[-1], 2)
@@ -154,11 +153,6 @@ def train(key):
             print(f'ite:{j},mse:{train_mse_error:.2e},relative:{train_relative_error:.2e}')
             erros.append(train_relative_error)
     # eval
-    # if args.network == 'sinckan':
-    #     netlayer = lambda model, x, frozen_para: model(jnp.stack([x]), frozen_para)
-    #     z0 = vmap(netlayer, (None, 0, None))(model.layers[0], x_train[:, 0], frozen_para[0])
-    #     # z1 = vmap(netlayer, (None, 0, None))(model.layers[1], x_train[:, 0], frozen_para[1])
-    #     np.savez('inter.npz', z0=z0)
     avg_time = np.mean(np.array(T))
     print(f'time: {1 / avg_time:.2e}ite/s')
     train_y_pred = vmap(net, (None, 0, None))(model, x_train[:, 0], frozen_para)
@@ -198,22 +192,17 @@ def eval(key):
     interval = args.interval.split(',')
     lowb, upb = float(interval[0]), float(interval[1])
     interval = [lowb, upb]
-    x_train = np.linspace(lowb, upb, num=args.npoints)[:, None]
     x_test = np.linspace(lowb, upb, num=args.ntest)[:, None]
     generate_data = get_data(args.datatype)
-    y_train = generate_data(x_train)
-    # Add noise
-    if args.noise == 1:
-        sigma = 0.1
-        y_target = y_train.copy()
-        y_train += np.random.normal(0, sigma, y_train.shape)
 
     y_test = generate_data(x_test)
+    normalizer = normalization(x_test, args.normalization)
+
     input_dim = 1
     output_dim = 1
     # Choose the model
     keys = random.split(key, 2)
-    model = get_network(args, input_dim, output_dim, interval, keys)
+    model = get_network(args, input_dim, output_dim, interval, normalizer, keys)
     frozen_para = model.get_frozen_para()
     path = f'{args.datatype}_{args.network}_{args.seed}.eqx'
     model = eqx.tree_deserialise_leaves(path, model)
@@ -221,12 +210,12 @@ def eval(key):
     y_pred = vmap(net, (None, 0, None))(model, x_test[:, 0], frozen_para)
     mse_error = jnp.mean((y_pred.flatten() - y_test.flatten()) ** 2)
     relative_error = jnp.linalg.norm(y_pred.flatten() - y_test.flatten()) / jnp.linalg.norm(y_test.flatten())
-    print(f'mse: {mse_error},relative: {relative_error}')
+    print(f'testing mse: {mse_error:.2e},relative: {relative_error:.2e}')
 
     plt.figure(figsize=(10, 5))
-    plt.plot(x_test, y_test, 'r', label='Original Data')
+    plt.plot(x_test, y_test, 'r', label='Target')
     plt.plot(x_test, y_pred, 'b-', label='SincKAN')
-    plt.title('Comparison of SincKAN and MLP Interpolations f(x)')
+    plt.title('Comparison of SincKAN')
     plt.xlabel('x')
     plt.ylabel('f(x)')
     plt.legend()
@@ -238,4 +227,7 @@ if __name__ == "__main__":
     seed = args.seed
     np.random.seed(seed)
     key = random.PRNGKey(seed)
-    train(key)
+    if args.mode == 'train':
+        train(key)
+    elif args.mode == 'eval':
+        eval(key)

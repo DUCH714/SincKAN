@@ -64,7 +64,7 @@ compute_loss_and_grads = eqx.filter_value_and_grad(compute_loss)
 @eqx.filter_jit
 def make_step(model, ob_xy, frozen_para, optim, opt_state):
     loss, grads = compute_loss_and_grads(model, ob_xy, frozen_para)
-    updates, opt_state = optim.update(grads, opt_state,eqx.filter(model, eqx.is_array))
+    updates, opt_state = optim.update(grads, opt_state, eqx.filter(model, eqx.is_array))
     model = eqx.apply_updates(model, updates)
     return loss, model, opt_state
 
@@ -92,7 +92,7 @@ def train(key):
     output_dim = 1
     # Choose the model
     keys = random.split(key, 2)
-    model = get_network(args, input_dim, output_dim, interval,normalizer, keys)
+    model = get_network(args, input_dim, output_dim, interval, normalizer, keys)
     frozen_para = model.get_frozen_para()
     # Hyperparameters
     N_train = args.ntrain
@@ -143,7 +143,8 @@ def train(key):
     path = f'{args.datatype}_{args.network}_{args.seed}.eqx'
     eqx.tree_serialise_leaves(path, model)
     path = f'{args.datatype}_{args.network}_{args.seed}.npz'
-    np.savez(path, loss=history, avg_time=avg_time, y_pred=y_pred, y_test=y_test,y_coarse_pred=train_y_pred,y_coarse_test=y_target)
+    np.savez(path, loss=history, avg_time=avg_time, y_pred=y_pred, y_test=y_test, y_coarse_pred=train_y_pred,
+             y_coarse_test=y_target)
 
     # write the reuslts on csv file
     header = "datatype, network, seed, final_loss_mean, training_time, total_ite, mse, relative, fine_mse, fine_relative"
@@ -162,12 +163,11 @@ def eval(key):
     interval = args.interval.split(',')
     lowb, upb = float(interval[0]), float(interval[1])
     interval = [lowb, upb]
-    x_train = np.linspace(lowb, upb, num=args.npoints)[:, None]
     x_test = np.linspace(lowb, upb, num=args.ntest)[:, None]
     generate_data = get_data(args.datatype)
 
     y_test = generate_data(x_test)
-    normalizer = normalization(x_train, args.normalization)
+    normalizer = normalization(x_test, args.normalization)
 
     input_dim = 1
     output_dim = 1
@@ -197,7 +197,7 @@ if __name__ == "__main__":
     seed = args.seed
     np.random.seed(seed)
     key = random.PRNGKey(seed)
-    if args.mode=='train':
+    if args.mode == 'train':
         train(key)
-    elif args.mode=='eval':
+    elif args.mode == 'eval':
         eval(key)
