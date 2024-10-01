@@ -9,6 +9,8 @@ def get_data(datatype):
         generate_data = sqrt
     elif datatype == 'bl':
         generate_data = boundary_layer
+    elif datatype == 'bl2d':
+        generate_data = boundary_layer2d
     elif datatype == 'sin_low':
         generate_data = sin_low
     elif datatype == 'sin_high':
@@ -17,6 +19,8 @@ def get_data(datatype):
         generate_data = double_exponential
     elif datatype == 'spectral_bias':
         generate_data = spectral_bias
+    elif datatype == 'endpoint':
+        generate_data = endpoint_singularity_function
     elif datatype == 'piecewise':
         generate_data = piece_wise_function
     elif datatype == 'multi_sqrt':
@@ -31,6 +35,18 @@ def get_data(datatype):
         generate_data = bessel_function_of_the_first_kind
     elif datatype == 'yn':
         generate_data = bessel_function_of_the_second_kind
+    elif datatype == 'nonlinear':
+        generate_data = nonlinear
+    elif datatype == 'nonlinear_t':
+        generate_data=nonlinear_t
+    elif datatype == 'pbl':
+        generate_data = pbl
+    elif datatype == 'ns_tg':
+        generate_data = ns_tg
+    elif datatype == 'burgers_1d':
+        generate_data = burgers_1d
+    elif datatype == 'cdiff':
+        generate_data = cdiff
     elif datatype == 'lpmv':
         generate_data = associated_legendre_function_of_the_first_kind
     elif datatype == 'sph_harm01':
@@ -77,6 +93,21 @@ def sqrt(x):
 
 def boundary_layer(x, alpha=100):
     y = np.exp(-x*alpha)
+    return y
+
+def boundary_layer2d(x, y, alpha=100):
+    y = np.exp(-x * alpha) + np.exp(-y * alpha)
+    return y
+
+
+def endpoint_singularity_function(x):
+    y = np.zeros_like(x)
+    mask1 = x < 0
+    y[mask1] = 0
+    mask2 = (0 <= x) & (x <= 1)
+    y[mask2] = x[mask2] ** 0.5 * (1 - x[mask2]) ** (3 / 4)
+    mask3 = x > 1
+    y[mask3] = 0
     return y
 
 def sin_low(x):
@@ -209,4 +240,34 @@ def function_100D(x):
     return z
 
 
+def pbl(x, alpha=100):
+    eps = 1 / alpha
+    z = 1 + x + (np.exp(x / eps) - 1) / (np.exp(1 / eps) - 1)
+    return z
+
+
+def nonlinear(x):
+    z = x ** (5 / 2) * (1 - x) ** 2 + x ** 3 + 1
+    return z
+
+
+def burgers_1d(x, t, a=0.1, nu=0.01):
+    z = a / 2 - a / 2 * np.tanh(a * (x - a * t / 2) / 4 / nu)
+    return z
+
+def ns_tg(x, y, t, nu, k=1):
+    u = -np.cos(k*x) * np.sin(k*y) * np.exp(-2 * t * nu)
+    v = np.sin(k*x) * np.cos(k*y) * np.exp(-2 * t * nu)
+    p = -(np.cos(2 * k*x) + np.sin(2 * k*y)) * np.exp(-4 * t * nu) / 4
+    return u, v, p
+
+def nonlinear_t(x,t):
+    z = np.cos((x+2)*(t+1))
+    return z
+
+def cdiff(x,t,a,eps,N=6):
+    Z = 0
+    for k in range(N):
+        Z = Z + np.sin(k * (x - a * t)) * np.exp(-eps * k ** 2 * t)
+    return Z
 
