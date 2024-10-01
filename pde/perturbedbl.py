@@ -22,11 +22,11 @@ import jax
 # jax.config.update("jax_enable_x64", True)
 
 parser = argparse.ArgumentParser(description="SincKAN")
-parser.add_argument("--datatype", type=str, default='pbl', help="type of data")
+parser.add_argument("--datatype", type=str, default='pbl2', help="type of data")
 parser.add_argument("--npoints", type=int, default=1000, help="the number of total dataset")
 parser.add_argument("--ntest", type=int, default=1000, help="the number of testing dataset")
 parser.add_argument("--ntrain", type=int, default=500, help="the number of training dataset for each epochs")
-parser.add_argument("--ite", type=int, default=20, help="the number of iteration")
+parser.add_argument("--ite", type=int, default=30, help="the number of iteration")
 parser.add_argument("--epochs", type=int, default=50000, help="the number of epochs")
 parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
 parser.add_argument("--seed", type=int, default=0, help="the name")
@@ -34,9 +34,9 @@ parser.add_argument("--noise", type=int, default=0, help="add noise or not, 0: n
 parser.add_argument("--normalization", type=int, default=0, help="add normalization or not, 0: no normalization, "
                                                                  "1: add normalization")
 parser.add_argument("--interval", type=str, default="-1.0,1.0", help='boundary of the interval')
-parser.add_argument("--network", type=str, default="mlp", help="type of network")
+parser.add_argument("--network", type=str, default="sinckan", help="type of network")
 parser.add_argument("--kanshape", type=str, default="8", help='shape of the network (KAN)')
-parser.add_argument("--degree", type=int, default=8, help='degree of polynomials')
+parser.add_argument("--degree", type=int, default=12, help='degree of polynomials')
 parser.add_argument("--features", type=int, default=100, help='width of the network')
 parser.add_argument("--layers", type=int, default=10, help='depth of the network')
 parser.add_argument("--len_h", type=int, default=1, help='lenth of k for sinckan')
@@ -65,7 +65,7 @@ def residual(model, x, frozen_para, alpha):
 
     u_x = grad(net, argnums=1)(model, x, frozen_para)
     u_xx = grad(grad(net, argnums=1), argnums=1)(model, x, frozen_para)
-    f = u_xx / alpha - u_x -1 / 2
+    f = u_xx / alpha - u_x + 1
     return f
 
 
@@ -151,12 +151,8 @@ def train(key):
                 y_train.flatten())
             print(f'ite:{j},mse:{train_mse_error:.2e},relative:{train_relative_error:.2e}')
             erros.append(train_relative_error)
+
     # eval
-    # if args.network == 'sinckan':
-    #     netlayer = lambda model, x, frozen_para: model(jnp.stack([x]), frozen_para)
-    #     z0 = vmap(netlayer, (None, 0, None))(model.layers[0], x_train[:, 0], frozen_para[0])
-    #     # z1 = vmap(netlayer, (None, 0, None))(model.layers[1], x_train[:, 0], frozen_para[1])
-    #     np.savez('inter.npz', z0=z0)
     avg_time = np.mean(np.array(T))
     print(f'time: {1 / avg_time:.2e}ite/s')
     train_y_pred = vmap(net, (None, 0, None))(model, x_train[:, 0], frozen_para)

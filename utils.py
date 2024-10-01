@@ -1,5 +1,5 @@
 import numpy as np
-import jax
+import jax.numpy as jnp
 
 def split_kanshape(input_dim,output_dim,shape):
     z=shape.split(',')
@@ -11,8 +11,8 @@ def split_kanshape(input_dim,output_dim,shape):
     return features
 
 def normalization(x,is_normalization):
-    max=x.max()
-    min=x.min()
+    max=jnp.array(x.max())
+    min=jnp.array(x.min())
     if is_normalization==1:
         if max!=1 or min!=-1:
             mean=(max+min)/2

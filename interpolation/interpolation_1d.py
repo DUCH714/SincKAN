@@ -39,8 +39,6 @@ parser.add_argument("--layers", type=int, default=10, help='depth of the network
 parser.add_argument("--len_h", type=int, default=2, help='lenth of k for sinckan')
 parser.add_argument("--embed_feature", type=int, default=10, help='embedding features of the modified MLP')
 parser.add_argument("--device", type=int, default=7, help="cuda number")
-parser.add_argument("--init_h", type=float, default=4.0, help='initial h for sinckan')
-parser.add_argument("--decay", type=str, default='inverse', help='exponent for h')
 args = parser.parse_args()
 
 os.environ['CUDA_VISIBLE_DEVICES'] = str(args.device)
@@ -72,14 +70,14 @@ def train(key):
     interval = args.interval.split(',')
     lowb, upb = float(interval[0]), float(interval[1])
     interval = [lowb, upb]
-    x_train = np.linspace(lowb, upb, num=args.ntrain)[:, None]
+    x_train = np.linspace(lowb, upb, num=args.npoints)[:, None]
     x_test = np.linspace(lowb, upb, num=args.ntest)[:, None]
     generate_data = get_data(args.datatype)
     y_train = generate_data(x_train)
     y_target = y_train.copy()
     # Add noise
     if args.noise == 1:
-        sigma = 0.01
+        sigma = 0.1
         y_train += np.random.normal(0, sigma, y_train.shape)
 
     y_test = generate_data(x_test)
@@ -145,7 +143,7 @@ def train(key):
 
     # write the reuslts on csv file
     header = "datatype, network, seed, final_loss_mean, training_time, total_ite, mse, relative, fine_mse, fine_relative"
-    save_here = "results_updated2.csv"
+    save_here = "results.csv"
     if not os.path.isfile(save_here):
         with open(save_here, "w") as f:
             f.write(header)
@@ -167,18 +165,20 @@ def eval(key):
     y_target = y_train.copy()
     # Add noise
     if args.noise == 1:
-        sigma = 0.01
+        sigma = 0.1
         y_train += np.random.normal(0, sigma, y_train.shape)
 
     y_test = generate_data(x_test)
-    normalizer = normalization(x_train, args.normalization)
+    if args.normalization==1:
+        x_train = normalization(x_train)
+        x_test = normalization(x_test)
 
     ob_xy = np.concatenate([x_train, y_train], -1)
     input_dim = 1
     output_dim = 1
     # Choose the model
     keys = random.split(key, 2)
-    model = get_network(args, input_dim, output_dim, interval, normalizer, keys)
+    model = get_network(args, input_dim, output_dim, interval, keys)
     path = f'{args.datatype}_{args.network}_{args.seed}.eqx'
     frozen_para = model.get_frozen_para()
     model = eqx.tree_deserialise_leaves(path, model)
