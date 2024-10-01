@@ -531,4 +531,3 @@ dependencies:
       - optax==0.2.3
       - pip==24.2
       - typeguard==2.13.3
-prefix: /home/qjw/anaconda3
