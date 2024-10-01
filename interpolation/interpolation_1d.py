@@ -20,23 +20,23 @@ from utils import normalization
 
 parser = argparse.ArgumentParser(description="SincKAN")
 parser.add_argument("--datatype", type=str, default='bl', help="type of data")
-parser.add_argument("--npoints", type=int, default=500, help="the number of total dataset")
-parser.add_argument("--ntest", type=int, default=1000, help="the number of testing dataset")
-parser.add_argument("--ntrain", type=int, default=500, help="the number of training dataset for each epochs")
-parser.add_argument("--ite", type=int, default=20, help="the number of iteration")
+parser.add_argument("--npoints", type=int, default=5000, help="the number of total dataset")
+parser.add_argument("--ntest", type=int, default=10000, help="the number of testing dataset")
+parser.add_argument("--ntrain", type=int, default=3000, help="the number of training dataset for each epochs")
+parser.add_argument("--ite", type=int, default=30, help="the number of iteration")
 parser.add_argument("--epochs", type=int, default=50000, help="the number of epochs")
 parser.add_argument("--lr", type=float, default=1e-3, help="learning rate")
 parser.add_argument("--seed", type=int, default=0, help="the name")
 parser.add_argument("--noise", type=int, default=0, help="add noise or not, 0: no noise, 1: add noise")
-parser.add_argument("--normalization", type=int, default=0, help="add normalization or not, 0: no normalization, "
+parser.add_argument("--normalization", type=int, default=1, help="add normalization or not, 0: no normalization, "
                                                                  "1: add normalization")
 parser.add_argument("--interval", type=str, default="0.0,1.0", help='boundary of the interval')
-parser.add_argument("--network", type=str, default="mlp", help="type of network")
+parser.add_argument("--network", type=str, default="sicnakn", help="type of network")
 parser.add_argument("--kanshape", type=str, default="16", help='shape of the network (KAN)')
 parser.add_argument("--degree", type=int, default=100, help='degree of polynomials')
 parser.add_argument("--features", type=int, default=100, help='width of the network')
 parser.add_argument("--layers", type=int, default=10, help='depth of the network')
-parser.add_argument("--len_h", type=int, default=2, help='lenth of k for sinckan')
+parser.add_argument("--len_h", type=int, default=6, help='lenth of k for sinckan')
 parser.add_argument("--embed_feature", type=int, default=10, help='embedding features of the modified MLP')
 parser.add_argument("--device", type=int, default=7, help="cuda number")
 parser.add_argument("--init_h", type=float, default=4.0, help='initial h for sinckan')
@@ -163,17 +163,10 @@ def eval(key):
     x_train = np.linspace(lowb, upb, num=args.npoints)[:, None]
     x_test = np.linspace(lowb, upb, num=args.ntest)[:, None]
     generate_data = get_data(args.datatype)
-    y_train = generate_data(x_train)
-    y_target = y_train.copy()
-    # Add noise
-    if args.noise == 1:
-        sigma = 0.01
-        y_train += np.random.normal(0, sigma, y_train.shape)
 
     y_test = generate_data(x_test)
     normalizer = normalization(x_train, args.normalization)
 
-    ob_xy = np.concatenate([x_train, y_train], -1)
     input_dim = 1
     output_dim = 1
     # Choose the model
