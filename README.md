@@ -3,14 +3,14 @@
 
 To install requirements:
 
-By anaconda:
+anaconda:
 ```setup
 conda install -r environment.yml
 ```
 
-By docker:
+docker:
 ```setupd
-
+docker pull ghcr.io/nvidia/jax:equinox
 ```
 
 ## Data
