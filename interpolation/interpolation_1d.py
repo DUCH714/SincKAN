@@ -31,16 +31,16 @@ parser.add_argument("--noise", type=int, default=0, help="add noise or not, 0: n
 parser.add_argument("--normalization", type=int, default=1, help="add normalization or not, 0: no normalization, "
                                                                  "1: add normalization")
 parser.add_argument("--interval", type=str, default="0.0,1.0", help='boundary of the interval')
-parser.add_argument("--network", type=str, default="sicnakn", help="type of network")
+parser.add_argument("--network", type=str, default="sinckan", help="type of network")
 parser.add_argument("--kanshape", type=str, default="16", help='shape of the network (KAN)')
 parser.add_argument("--degree", type=int, default=100, help='degree of polynomials')
 parser.add_argument("--features", type=int, default=100, help='width of the network')
 parser.add_argument("--layers", type=int, default=10, help='depth of the network')
 parser.add_argument("--len_h", type=int, default=6, help='lenth of k for sinckan')
+parser.add_argument("--init_h", type=float, default=4.0, help='initial h for sinckan')
+parser.add_argument("--decay", type=str, default='inverse', help='decay type for h')
 parser.add_argument("--embed_feature", type=int, default=10, help='embedding features of the modified MLP')
 parser.add_argument("--device", type=int, default=7, help="cuda number")
-parser.add_argument("--init_h", type=float, default=4.0, help='initial h for sinckan')
-parser.add_argument("--decay", type=str, default='inverse', help='exponent for h')
 args = parser.parse_args()
 
 os.environ['CUDA_VISIBLE_DEVICES'] = str(args.device)
@@ -175,11 +175,6 @@ def eval(key):
     path = f'{args.datatype}_{args.network}_{args.seed}.eqx'
     frozen_para = model.get_frozen_para()
     model = eqx.tree_deserialise_leaves(path, model)
-    if args.network == 'sinckan':
-        netlayer = lambda model, x, frozen_para: model(jnp.stack([x]), frozen_para)
-        z0 = vmap(netlayer, (None, 0, None))(model.layers[0], x_train[:, 0], frozen_para[0])
-        z1 = vmap(netlayer, (None, 0, None))(model.layers[1], x_train[:, 0], frozen_para[1])
-        np.savez('inter.npz',z0=z0,z1=z1)
     y_pred = vmap(net, (None, 0, None))(model, x_test[:, 0], frozen_para)
     mse_error = jnp.mean((y_pred.flatten() - y_test.flatten()) ** 2)
     relative_error = jnp.linalg.norm(y_pred.flatten() - y_test.flatten()) / jnp.linalg.norm(y_test.flatten())
@@ -188,29 +183,13 @@ def eval(key):
     plt.figure(figsize=(10, 5))
     plt.plot(x_test, y_test, 'r', label='Original Data')
     plt.plot(x_test, y_pred, 'b-', label='SincKAN')
-    plt.title('Comparison of SincKAN and MLP Interpolations f(x)')
+    plt.title('Comparison of SincKAN')
     plt.xlabel('x')
     plt.ylabel('f(x)')
     plt.legend()
     path = f'{args.datatype}_{args.network}_{args.seed}.png'
     plt.savefig(path)
 
-    u_x = vmap(grad(net, argnums=1), (None, 0, None))(model, x_train[:, 0], frozen_para)
-    u_xx = vmap(grad(grad(net, argnums=1), argnums=1), (None, 0, None))(model, x_train[:, 0], frozen_para)
-    f = (u_xx / 100 + u_x)
-    print(f'{(f**2).mean()}')
-    np.savez('diff.npz', u_xx=u_xx, u_x=u_x, f=f)
-
-    plt.figure(figsize=(10, 5))
-    fig,ax = plt.subplots(1,3,)
-    ax[0].plot(x_train, u_x, 'r', label='u_x')
-    ax[0].set_title('u_x')
-    ax[1].plot(x_train, u_xx, 'b-', label='u_xx')
-    ax[1].set_title('u_xx')
-    ax[2].plot(x_train, f, 'b-', label='u_xx')
-    ax[2].set_title('residual')
-    path = f'{args.datatype}_{args.network}_{args.seed}_diff.png'
-    plt.savefig(path)
 
 if __name__ == "__main__":
     seed = args.seed
