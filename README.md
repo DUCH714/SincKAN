@@ -42,7 +42,7 @@ python approximation_1d.py --mode eval
 ## Results ($L^2$ Relative errors)
 We demostrate partial results of our paper:
 
-| Model name     | MLP             | KAN             | SincKAN         | 
-| -------------- |-----------------|-----------------|-----------------|
-| convection-diffusion | 1.79e-2±4.19e-3 | 1.14e-5±1.28e-5 | 1.35e-4±1.64e-4 |
-| diffusion | 1.88e-2±1.44e-2 | 4.32e-4±1.6le-4 | 4.30e-4±2.38e-4 | 
+| Model name | MLP             | KAN             | SincKAN         | 
+|------------|-----------------|-----------------|-----------------|
+| pbl        | 2.89e-2 ± 3.09e-2 | 4.48e-3 ± 4.20e-3 | 1.88e-3 ± 8.55e-4 |
+| bl_1000    | 9.87 ± 8.70 | 11.3 ± 8.79 | 5.48e-3 ± 3.45e-3 | 
