@@ -3,72 +3,40 @@
 
 To install requirements:
 
+By anaconda:
 ```setup
-pip install -r requirements.txt
+conda install -r environment.yml
+```
+
+By docker:
+```setupd
+
 ```
 
 ## Data
 
-To generate data, you can use the current dataset in data/ or you can generate them by yourself via the scripts in data/, for example:
-
-```data
-python generate_heat_2d.py
-```
+To generate data, you can use the current dataset in data.py or you can add new data.
 
 ## Training
 
 To train the model(s) in the paper, change the directory to the specific directory,
 
-run this command for vanilla pinn:
+for example, run command for approximation:
 
 ```train
-python train_vanilla.py --data <path_to_data> 
-```
-
-run this command for fspinn with si:
-
-```train
-python train_si.py --data <path_to_data> 
-```
-
-run this command for fspinn with wl:
-
-```train
-python train_wl.py --data <path_to_data> 
-```
-
-run this command for dealiasing pinn:
-
-```train
-python train_dealias.py --data <path_to_data> 
+cd ./approximation/
+python approximation_1d.py --mode train
 ```
 
 ## Evaluation
 
-To evaluate the model, change the directory to the specific directory, 
+To train the model(s) in the paper, change the directory to the specific directory,
 
-run this command for vanilla pinn:
+for example, run command for approximation:
 
-```eval
-python eval_vanilla.py --model  <path_to_model>  --data <path_to_data> 
-```
-
-run this command for fspinn with si:
-
-```eval
-python eval_si.py --model  <path_to_model>  --data <path_to_data> 
-```
-
-run this command for fspinn with wl:
-
-```eval
-python eval_wl.py --model  <path_to_model>  --data <path_to_data> 
-```
-
-run this command for dealiasing pinn:
-
-```eval
-python eval_delias.py --model  <path_to_model>  --data <path_to_data> 
+```train
+cd ./approximation/
+python approximation_1d.py --mode eval
 ```
 
 ## Results ($L^2$ Relative errors)
