@@ -19,6 +19,8 @@ from networks import get_network
 from utils import normalization
 
 parser = argparse.ArgumentParser(description="SincKAN")
+parser.add_argument("--mode", type=str, default='train', help="mode of the network, "
+                                                              "train: start training, eval: evaluation")
 parser.add_argument("--datatype", type=str, default='bl', help="type of data")
 parser.add_argument("--npoints", type=int, default=5000, help="the number of total dataset")
 parser.add_argument("--ntest", type=int, default=10000, help="the number of testing dataset")
@@ -195,5 +197,7 @@ if __name__ == "__main__":
     seed = args.seed
     np.random.seed(seed)
     key = random.PRNGKey(seed)
-    train(key)
-    eval(key)
+    if args.mode=='train':
+        train(key)
+    elif args.mode=='eval':
+        eval(key)
