@@ -21,7 +21,8 @@ def get_network(args, input_dim, output_dim, interval, normalizer, keys):
         model = KAN(features=features, interval=interval, degree=args.degree, normalizer=normalizer, key=keys[0])
     elif args.network == 'sinckan':
         features = split_kanshape(input_dim, output_dim, args.kanshape)
-        model = sincKAN(features=features, degree=args.degree, len_h=args.len_h, normalizer=normalizer, key=keys[0], init_h=args.init_h, decay = args.decay)
+        model = sincKAN(features=features, degree=args.degree, len_h=args.len_h, normalizer=normalizer,
+                        init_h=args.init_h, decay=args.decay,key=keys[0])
     elif args.network == 'chebykan':
         features = split_kanshape(input_dim, output_dim, args.kanshape)
         model = chebyKAN(features=features, degree=args.degree, normalizer=normalizer, key=keys[0])
@@ -51,8 +52,6 @@ class MLP(eqx.Module):
         self.normalizer = [normalizer]
 
     def __call__(self, input, frozen_para):
-        # points = jnp.stack([jnp.cos(x), jnp.sin(x), jnp.cos(y), jnp.sin(y), t])
-        # input = self.normalizer[0](input)
 
         f = input @ self.matrices[0] + self.biases[0]
         for i in range(1, len(self.matrices)):
@@ -96,7 +95,6 @@ class modifiedMLP(eqx.Module):
         self.normalizer = [normalizer]
 
     def __call__(self, input, frozen_para):
-        # points = jnp.stack([jnp.cos(x), jnp.sin(x), jnp.cos(y), jnp.sin(y), t])
         input = self.normalizer[0](input)
         u = input @ self.matrices_modified[0] + self.biases_modified[0]
         v = input @ self.matrices_modified[1] + self.biases_modified[1]
@@ -131,8 +129,6 @@ class KAN(eqx.Module):
         self.normalizer = [normalizer]
 
     def __call__(self, x, frozen_para):
-        # points = jnp.stack([jnp.cos(x), jnp.sin(x), jnp.cos(y), jnp.sin(y), t])
-        # x = self.normalizer[0](x)
         for i in range(len(self.layers)):
             # f = tanh(f)
             x = self.layers[i](x, frozen_para[i])
@@ -159,8 +155,6 @@ class chebyKAN(eqx.Module):
             self.activation = tanh
 
     def __call__(self, x, frozen_para):
-        # points = jnp.stack([jnp.cos(x), jnp.sin(x), jnp.cos(y), jnp.sin(y), t])
-        # x = self.normalizer[0](x)
         for i in range(len(self.layers)):
             x = self.activation(x)
             x = self.layers[i](x, frozen_para[i])
@@ -180,18 +174,16 @@ class sincKAN(eqx.Module):
 
     def __init__(self, features, normalizer, key, degree, len_h, decay, init_h=4.0, activation='tanh'):
         keys = random.split(key, len(features) + 1)
-        self.layers = [SincLayers(f_in, f_out, degree, key, len_h=len_h, init_h=init_h, decay = decay) for f_in, f_out, key in
+        self.layers = [SincLayers(f_in, f_out, degree, key, len_h=len_h, init_h=init_h, decay=decay) for
+                       f_in, f_out, key in
                        zip(features[:-1], features[1:], keys)]
         if activation == 'tanh':
             self.activation = tanh
         self.normalizer = [normalizer]
 
     def __call__(self, x, frozen_para):
-        # points = jnp.stack([jnp.cos(x), jnp.sin(x), jnp.cos(y), jnp.sin(y), t])
         x = self.normalizer[0](x)
-        # x = self.layers[0](x, frozen_para[0])
         for i in range(len(self.layers)):
-            # x = self.normalization(x)
             x = self.layers[i](x, frozen_para[i])
         return x
 
@@ -213,11 +205,10 @@ class KANLayers(eqx.Module):
 
     def __init__(self, input_dim, output_dim, degree, interval, key, activation='silu'):
         self.k = 3
-        self.G = degree-self.k
+        self.G = degree - self.k
         self.coeffs = [random.normal(key, (input_dim, output_dim, degree)) / jnp.sqrt(input_dim * (degree + 1)),
                        jnp.ones((input_dim, output_dim)), jnp.ones((input_dim, output_dim))]
-        # self.coeffs = [random.zeros((input_dim, output_dim, degree)) / jnp.sqrt(input_dim * (degree + 1)),
-        #                jnp.ones((input_dim, output_dim)), jnp.ones((input_dim, output_dim))]
+
         self.dx = (interval[1] - interval[0]) / self.G
         self.interval = interval
         self.input_dim = input_dim
@@ -232,7 +223,7 @@ class KANLayers(eqx.Module):
 
     def __call__(self, x, frozen_para):
         basis = self.get_spline_basis(x, frozen_para)
-        spl = jnp.einsum("id,iod->io", basis, self.coeffs[0])  # jnp.einsum('j,jk->k', self.coeffis, basis)
+        spl = jnp.einsum("id,iod->io", basis, self.coeffs[0])
         res = self.activation(x)
 
         y = jnp.mean(spl * self.coeffs[1], axis=0) + res @ self.coeffs[2]
@@ -241,11 +232,8 @@ class KANLayers(eqx.Module):
 
     def get_spline_basis(self, x, frozen_para):
         grid = frozen_para['grid']
-        x = jnp.expand_dims(x, axis=1)  # (in_dim*out_dim,1)
-        # k = 0 case
-        basis_splines = ((x >= grid[:, :-1]) & (x < grid[:, 1:])).astype(float)  # (in_dim*out_dim,1)
-
-        # Recursion done through iteration
+        x = jnp.expand_dims(x, axis=1)
+        basis_splines = ((x >= grid[:, :-1]) & (x < grid[:, 1:])).astype(float)
         for k in range(1, self.k + 1):
             left_term = (x - grid[:, :-(k + 1)]) / (grid[:, k:-1] - grid[:, :-(k + 1)])
             right_term = (grid[:, k + 1:] - x) / (grid[:, k + 1:] - grid[:, 1:(-k)])
@@ -273,7 +261,6 @@ class ChebyLayers(eqx.Module):
         x = jnp.tile(jnp.expand_dims(x, axis=1), (1, self.degree + 1))
         x = jnp.arccos(x)
 
-        # k = np.arange(0, self.degree + 1, 1)
         k = frozen_para['k']
         x = x * k
         x = jnp.cos(x)
@@ -291,48 +278,49 @@ class SincLayers(eqx.Module):
     init_h: float
     coeffs: jnp.array
     decay: str
+    beta: jnp.array
+    alpha: jnp.array
 
-    def __init__(self, input_dim, output_dim, degree, key, init_h, len_h=2, decay = 'inverse'):
+    def __init__(self, input_dim, output_dim, degree, key, init_h, len_h=2, decay='inverse'):
         self.degree = degree
         self.decay = decay
-
-        # Learnable coefficients
-        self.coeffs = random.normal(key, (input_dim, output_dim, len_h, (degree + 1))) / jnp.sqrt(
-            input_dim * (degree + 1))
-        # self.h = [1, 1 / 6, 1 / 12, 1 / 18, 1 / 24, 1 / 30]
-        # self.h = [1.]+[1 / 6 / k for k in range(1, len_h)]
+        self.coeffs = random.normal(key, (input_dim, output_dim, len_h, (degree + 1)))
 
         self.len_h = len_h
         self.init_h = init_h
-        # self.h.append(1)
+        self.alpha = jnp.ones((input_dim, output_dim))
+        self.beta = jnp.zeros((output_dim,))
 
     def __call__(self, x, frozen_para):
-        #x = tanh(x)
+        # x = tanh(x)
 
-        x = jnp.tile(jnp.expand_dims(x, axis=(1, 2)), (1, 1, self.degree + 1))
+        def __call__(self, x, frozen_para):
+            y_eqt = x @ self.alpha + self.beta
+            x = tanh(x)
+            x = jnp.tile(jnp.expand_dims(x, axis=(1, 2)), (1, 1, self.degree + 1))
 
-        k = frozen_para['k']
-        h = frozen_para['h']
-        # k = np.tile(k, (x.shape[0], 1))
+            k = frozen_para['k']
+            h = frozen_para['h']
+            x = x / h + k
 
-        # Using sin(x_j + k) / (x_j + k) for interpolation
-        # x_interp = jnp.sin(jnp.pi * (result + 1e-20)) / (jnp.pi * (result + 1e-20))
-        x_interp = jnp.sinc(x / h + k)
+            x_interp = jnp.sinc(x)
 
-        # Compute the interpolation using sin(x_j + k) / (x_j + k)
-        y = jnp.einsum("ikd,iokd->o", x_interp, self.coeffs)
-        return y
+            y = jnp.einsum("ikd,iokd->o", x_interp, self.coeffs)
+            y = y_eqt + y
 
+            return y
     def get_frozen_para(self):
         k = jnp.arange(-jnp.floor(self.degree / 2), jnp.ceil(self.degree / 2) + 1)
         k = jnp.expand_dims(k, axis=(0, 1))
         # h = 1 / 2 ** (jnp.arange(1, self.len_h + 1))
-        if self.decay == 'inverse':
 
+        if self.decay == 'inverse':
             h = 1 / (self.init_h * (1 + jnp.arange(self.len_h)))
         elif self.decay == 'exp':
             h = 1 / (self.init_h ** (1 + jnp.arange(self.len_h)))
 
+        else:
+            assert False, f'{self.decay} does not exist'
 
         h = jnp.expand_dims(h, axis=(0, 2))
 
