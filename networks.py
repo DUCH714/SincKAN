@@ -22,7 +22,7 @@ def get_network(args, input_dim, output_dim, interval, normalizer, keys):
     elif args.network == 'sinckan':
         features = split_kanshape(input_dim, output_dim, args.kanshape)
         model = sincKAN(features=features, degree=args.degree, len_h=args.len_h, normalizer=normalizer,
-                        init_h=args.init_h, decay=args.decay,key=keys[0])
+                        init_h=args.init_h, decay=args.decay, key=keys[0])
     elif args.network == 'chebykan':
         features = split_kanshape(input_dim, output_dim, args.kanshape)
         model = chebyKAN(features=features, degree=args.degree, normalizer=normalizer, key=keys[0])
@@ -292,27 +292,25 @@ class SincLayers(eqx.Module):
         self.beta = jnp.zeros((output_dim,))
 
     def __call__(self, x, frozen_para):
-        # x = tanh(x)
 
-        def __call__(self, x, frozen_para):
-            y_eqt = x @ self.alpha + self.beta
-            x = tanh(x)
-            x = jnp.tile(jnp.expand_dims(x, axis=(1, 2)), (1, 1, self.degree + 1))
+        y_eqt = x @ self.alpha + self.beta
+        x = tanh(x)
+        x = jnp.tile(jnp.expand_dims(x, axis=(1, 2)), (1, 1, self.degree + 1))
 
-            k = frozen_para['k']
-            h = frozen_para['h']
-            x = x / h + k
+        k = frozen_para['k']
+        h = frozen_para['h']
+        x = x / h + k
 
-            x_interp = jnp.sinc(x)
+        x_interp = jnp.sinc(x)
 
-            y = jnp.einsum("ikd,iokd->o", x_interp, self.coeffs)
-            y = y_eqt + y
+        y = jnp.einsum("ikd,iokd->o", x_interp, self.coeffs)
+        y = y_eqt + y
 
-            return y
+        return y
+
     def get_frozen_para(self):
         k = jnp.arange(-jnp.floor(self.degree / 2), jnp.ceil(self.degree / 2) + 1)
         k = jnp.expand_dims(k, axis=(0, 1))
-        # h = 1 / 2 ** (jnp.arange(1, self.len_h + 1))
 
         if self.decay == 'inverse':
             h = 1 / (self.init_h * (1 + jnp.arange(self.len_h)))

@@ -13,8 +13,8 @@ def split_kanshape(input_dim, output_dim, shape):
 
 
 def normalization(x, is_normalization):
-    max = jnp.array(x.max())
-    min = jnp.array(x.min())
+    max = np.array(x.max())
+    min = np.array(x.min())
     if is_normalization == 1:
         if max != 1 or min != -1:
             mean = (max + min) / 2

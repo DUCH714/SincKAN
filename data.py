@@ -37,8 +37,8 @@ def get_data(datatype):
         generate_data = bessel_function_of_the_second_kind
     elif datatype == 'nonlinear':
         generate_data = nonlinear
-    elif datatype == 'nonlinear_t':
-        generate_data=nonlinear_t
+    elif datatype == 't_nonlinear':
+        generate_data=t_nonlinear
     elif datatype == 'pbl':
         generate_data = pbl
     elif datatype == 'ns_tg':
@@ -261,7 +261,7 @@ def ns_tg(x, y, t, nu, k=1):
     p = -(np.cos(2 * k*x) + np.sin(2 * k*y)) * np.exp(-4 * t * nu) / 4
     return u, v, p
 
-def nonlinear_t(x,t):
+def t_nonlinear(x,t):
     z = np.cos((x+2)*(t+1))
     return z
 
