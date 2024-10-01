@@ -19,11 +19,11 @@ from networks import get_network
 from utils import normalization
 
 parser = argparse.ArgumentParser(description="SincKAN")
-parser.add_argument("--datatype", type=str, default='bl2d', help="type of data")
-parser.add_argument("--npoints", type=int, default=100, help="the number of total dataset")
-parser.add_argument("--ntest", type=int, default=100, help="the number of testing dataset")
-parser.add_argument("--ntrain", type=int, default=5000, help="the number of training dataset for each epochs")
-parser.add_argument("--ite", type=int, default=30, help="the number of iteration")
+parser.add_argument("--datatype", type=str, default='bl', help="type of data")
+parser.add_argument("--npoints", type=int, default=1000, help="the number of total dataset")
+parser.add_argument("--ntest", type=int, default=500, help="the number of testing dataset")
+parser.add_argument("--ntrain", type=int, default=1000, help="the number of training dataset for each epochs")
+parser.add_argument("--ite", type=int, default=20, help="the number of iteration")
 parser.add_argument("--epochs", type=int, default=50000, help="the number of epochs")
 parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
 parser.add_argument("--seed", type=int, default=0, help="the name")
@@ -33,11 +33,10 @@ parser.add_argument("--normalization", type=int, default=0, help="add normalizat
 parser.add_argument("--interval", type=str, default="0.0,1.0", help='boundary of the interval')
 parser.add_argument("--network", type=str, default="sinckan", help="type of network")
 parser.add_argument("--kanshape", type=str, default="8", help='shape of the network (KAN)')
-parser.add_argument("--degree", type=int, default=20, help='degree of polynomials')
+parser.add_argument("--degree", type=int, default=8, help='degree of polynomials')
 parser.add_argument("--features", type=int, default=100, help='width of the network')
 parser.add_argument("--layers", type=int, default=10, help='depth of the network')
 parser.add_argument("--len_h", type=int, default=1, help='lenth of k for sinckan')
-parser.add_argument("--init_h", type=float, default=2.0, help='initial value of h')
 parser.add_argument("--embed_feature", type=int, default=10, help='embedding features of the modified MLP')
 parser.add_argument("--alpha", type=float, default=100, help='boundary layer parameters')
 parser.add_argument("--device", type=int, default=3, help="cuda number")
@@ -46,11 +45,11 @@ args = parser.parse_args()
 os.environ['CUDA_VISIBLE_DEVICES'] = str(args.device)
 
 
-def net(model, x, y, frozen_para):
-    return model(jnp.stack([x, y]), frozen_para)[0]
+def net(model, x, frozen_para):
+    return model(jnp.stack([x]), frozen_para)[0]
 
 
-def residual(model, x, y, frozen_para, alpha):
+def residual(model, x, frozen_para, alpha):
     '''
     u_xx/alpha+u_x=0
     :param model:
@@ -60,19 +59,17 @@ def residual(model, x, y, frozen_para, alpha):
     :return:
     '''
 
-    u_x = grad(net, argnums=1)(model, x, y, frozen_para)
-    u_xx = grad(grad(net, argnums=1), argnums=1)(model, x, y, frozen_para)
-    u_y = grad(net, argnums=2)(model, x, y, frozen_para)
-    u_yy = grad(grad(net, argnums=2), argnums=2)(model, x, y, frozen_para)
-    f = u_xx / alpha + u_x + u_yy/alpha+u_y
+    u_x = grad(net, argnums=1)(model, x, frozen_para)
+    u_xx = grad(grad(net, argnums=1), argnums=1)(model, x, frozen_para)
+    f = u_xx / alpha + u_x
     return f
 
 
 def compute_loss(model, ob_x, ob_sup, frozen_para, alpha):
-    res = vmap(residual, (None, 0,0, None, None))(model, ob_x[:, 0], ob_x[:, 1], frozen_para, alpha)
+    res = vmap(residual, (None, 0, None, None))(model, ob_x[:, 0], frozen_para, alpha)
     r = (res ** 2).mean()
-    ob_b = vmap(net, (None, 0, 0, None))(model, ob_sup[:, 0], ob_sup[:, 1], frozen_para)
-    l_b = ((ob_b - ob_sup[:, 2]) ** 2).mean()
+    ob_b = vmap(net, (None, 0, None))(model, ob_sup[:, 0], frozen_para)
+    l_b = ((ob_b - ob_sup[:, 1]) ** 2).mean()
     return r + 100 * l_b
 
 
@@ -92,38 +89,24 @@ def train(key):
     interval = args.interval.split(',')
     lowb, upb = float(interval[0]), float(interval[1])
     interval = [lowb, upb]
-    x1_train, x2_train = np.meshgrid(*[np.linspace(lowb, upb, num=args.npoints)] * 2)
-    x1_test, x2_test = np.meshgrid(*[np.linspace(lowb, upb, num=args.ntest)] * 2)
+    x_train = np.linspace(lowb, upb, num=args.npoints)[:, None]
+    x_test = np.linspace(lowb, upb, num=args.ntest)[:, None]
     generate_data = get_data(args.datatype)
+    y_train = generate_data(x_train, alpha=args.alpha)
 
-    u_train = generate_data(x1_train, x2_train, alpha=args.alpha)
-
-    u_test = generate_data(x1_test, x2_test, alpha=args.alpha)
-
-    x1_train = x1_train.reshape(-1, 1)
-    x2_train = x2_train.reshape(-1, 1)
-    x1_test = x1_test.reshape(-1, 1)
-    x2_test = x2_test.reshape(-1, 1)
-    u_train = u_train.reshape(-1,1)
-
+    y_test = generate_data(x_test, alpha=args.alpha)
     # eps=1e-4
     # trans = lambda x: np.log((x-lowb+eps)/(upb+eps-x))
     # x_train = trans(x_train)
     # x_test = trans(x_test)
-    normalizer = normalization(x1_train, args.normalization)
-    ob_x = np.concatenate([x1_train, x2_train], -1)
-    index_b = np.zeros((args.npoints, args.npoints))
-    index_b[:, 0] = 1
-    index_b[:, -1] = 1
-    index_b[0, :] = 1
-    index_b[-1, :] = 1
-    index_b = (index_b == 1).flatten()
-    x1_b = x1_train[index_b]
-    x2_b = x2_train[index_b]
-    u_b = u_train[index_b]
-    ob_sup = jnp.concatenate([x1_b, x2_b, u_b], -1)
-    ob_x = ob_x[~index_b]
-    input_dim = 2
+    normalizer = normalization(x_train, args.normalization)
+    ob_x = x_train  # np.concatenate([x_train, y_train], -1)
+    index_b = [0, -1]
+    x_b = x_train[index_b, :]
+    y_b = y_train[index_b, :]
+    ob_sup = jnp.concatenate([x_b, y_b], -1)
+    ob_x = ob_x[1:-1]
+    input_dim = 1
     output_dim = 1
     # Choose the model
     keys = random.split(key, 2)
@@ -140,13 +123,14 @@ def train(key):
     gamma = 0.95
     sc = optax.exponential_decay(learning_rate, N_drop, gamma)
     # optim = optax.lion(learning_rate=1e-4)
-    optim = optax.adam(learning_rate=sc)
+    optim = optax.adamw(learning_rate=sc)
     opt_state = optim.init(eqx.filter(model, eqx.is_array))
 
     keys = random.split(keys[-1], 2)
     input_points = random.choice(keys[0], ob_x, shape=(N_train,), replace=False)
     history = []
     T = []
+    erros=[]
     for j in range(ite * N_epochs):
         T1 = time.time()
         loss, model, opt_state = make_step(model, input_points, ob_sup, frozen_para, optim, opt_state,
@@ -157,29 +141,36 @@ def train(key):
         if j % N_epochs == 0:
             keys = random.split(keys[-1], 2)
             input_points = random.choice(keys[0], ob_x, shape=(N_train,), replace=False)
-            train_u_pred = vmap(net, (None, 0, 0, None))(model, x1_train[:, 0], x2_train[:, 0], frozen_para)
-            train_mse_error = jnp.mean((train_u_pred.flatten() - u_train.flatten()) ** 2)
-            train_relative_error = jnp.linalg.norm(train_u_pred.flatten() - u_train.flatten()) / jnp.linalg.norm(
-                u_train.flatten())
+            train_y_pred = vmap(net, (None, 0, None))(model, x_train[:, 0], frozen_para)
+            train_mse_error = jnp.mean((train_y_pred.flatten() - y_train.flatten()) ** 2)
+            train_relative_error = jnp.linalg.norm(train_y_pred.flatten() - y_train.flatten()) / jnp.linalg.norm(
+                y_train.flatten())
             print(f'ite:{j},mse:{train_mse_error:.2e},relative:{train_relative_error:.2e}')
+            erros.append(train_relative_error)
     # eval
+    # if args.network == 'sinckan':
+    #     netlayer = lambda model, x, frozen_para: model(jnp.stack([x]), frozen_para)
+    #     z0 = vmap(netlayer, (None, 0, None))(model.layers[0], x_train[:, 0], frozen_para[0])
+    #     # z1 = vmap(netlayer, (None, 0, None))(model.layers[1], x_train[:, 0], frozen_para[1])
+    #     np.savez('inter.npz', z0=z0)
     avg_time = np.mean(np.array(T))
     print(f'time: {1 / avg_time:.2e}ite/s')
-    train_u_pred = vmap(net, (None, 0, 0, None))(model, x1_train[:, 0], x2_train[:, 0], frozen_para)
-    train_mse_error = jnp.mean((train_u_pred.flatten() - u_train.flatten()) ** 2)
-    train_relative_error = jnp.linalg.norm(train_u_pred.flatten() - u_train.flatten()) / jnp.linalg.norm(
-        u_train.flatten())
+    train_y_pred = vmap(net, (None, 0, None))(model, x_train[:, 0], frozen_para)
+    train_mse_error = jnp.mean((train_y_pred.flatten() - y_train.flatten()) ** 2)
+    train_relative_error = jnp.linalg.norm(train_y_pred.flatten() - y_train.flatten()) / jnp.linalg.norm(
+        y_train.flatten())
     print(f'training mse: {train_mse_error:.2e},relative: {train_relative_error:.2e}')
-    u_pred = vmap(net, (None, 0, 0, None))(model, x1_test[:, 0], x2_test[:, 0], frozen_para)
-    mse_error = jnp.mean((u_pred.flatten() - u_test.flatten()) ** 2)
-    relative_error = jnp.linalg.norm(u_pred.flatten() - u_test.flatten()) / jnp.linalg.norm(u_test.flatten())
+    erros.append(train_relative_error)
+    y_pred = vmap(net, (None, 0, None))(model, x_test[:, 0], frozen_para)
+    mse_error = jnp.mean((y_pred.flatten() - y_test.flatten()) ** 2)
+    relative_error = jnp.linalg.norm(y_pred.flatten() - y_test.flatten()) / jnp.linalg.norm(y_test.flatten())
     print(f'testing mse: {mse_error:.2e},relative: {relative_error:.2e}')
 
     # save model and results
-    path = f'{args.datatype}_{args.network}_{args.seed}.eqx'
+    path = f'{args.datatype}_{args.network}_{args.seed}_{args.alpha}.eqx'
     eqx.tree_serialise_leaves(path, model)
-    path = f'{args.datatype}_{args.network}_{args.seed}.npz'
-    np.savez(path, loss=history, avg_time=avg_time, y_pred=u_pred, y_test=u_test)
+    path = f'{args.datatype}_{args.network}_{args.seed}_{args.alpha}.npz'
+    np.savez(path, loss=history, avg_time=avg_time, y_pred=y_pred, y_test=y_test,errors=erros)
 
     # print the parameters
     param_count = sum(x.size if eqx.is_array(x) else 0 for x in jax.tree.leaves(model))
@@ -218,7 +209,7 @@ def eval(key):
     keys = random.split(key, 2)
     model = get_network(args, input_dim, output_dim, interval, keys)
     frozen_para = model.get_frozen_para()
-    path = f'{args.datatype}_{args.network}_{args.seed}.eqx'
+    path = f'{args.datatype}_{args.network}_{args.seed}_{args.alpha}.eqx'
     model = eqx.tree_deserialise_leaves(path, model)
 
     y_pred = vmap(net, (None, 0, None))(model, x_test[:, 0], frozen_para)
