@@ -69,6 +69,8 @@ def get_data(datatype):
         generate_data = function_4D
     elif datatype == '100D':
         generate_data = function_100D
+    elif datatype == 'poisson':
+        generate_data = poisson
     else:
         assert False, f'{datatype} does not exist'
     return generate_data
@@ -271,3 +273,6 @@ def cdiff(x,t,a,eps,N=6):
         Z = Z + np.sin(k * (x - a * t)) * np.exp(-eps * k ** 2 * t)
     return Z
 
+def poisson(x,alpha):
+    y=np.exp(-alpha*np.sum(x**2,axis=1))[:,None]
+    return y

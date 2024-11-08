@@ -25,10 +25,11 @@ parser.add_argument("--datatype", type=str, default='bl', help="type of data")
 parser.add_argument("--npoints", type=int, default=5000, help="the number of total dataset")
 parser.add_argument("--ntest", type=int, default=10000, help="the number of testing dataset")
 parser.add_argument("--ntrain", type=int, default=3000, help="the number of training dataset for each epochs")
-parser.add_argument("--ite", type=int, default=30, help="the number of iteration")
-parser.add_argument("--epochs", type=int, default=50000, help="the number of epochs")
+parser.add_argument("--ite", type=int, default=20, help="the number of iteration")
+parser.add_argument("--epochs", type=int, default=5000, help="the number of epochs")
 parser.add_argument("--lr", type=float, default=1e-3, help="learning rate")
 parser.add_argument("--seed", type=int, default=0, help="the name")
+parser.add_argument("--activation", type=str, default='tanh', help='the activation function')
 parser.add_argument("--noise", type=int, default=0, help="add noise or not, 0: no noise, 1: add noise")
 parser.add_argument("--normalization", type=int, default=1, help="add normalization or not, 0: no normalization, "
                                                                  "1: add normalization")
@@ -41,6 +42,7 @@ parser.add_argument("--layers", type=int, default=10, help='depth of the network
 parser.add_argument("--len_h", type=int, default=6, help='lenth of k for sinckan')
 parser.add_argument("--init_h", type=float, default=4.0, help='initial h for sinckan')
 parser.add_argument("--decay", type=str, default='inverse', help='decay type for h')
+parser.add_argument("--skip", type=int, default=1, help='1: use skip connection for sinckan')
 parser.add_argument("--embed_feature", type=int, default=10, help='embedding features of the modified MLP')
 parser.add_argument("--device", type=int, default=7, help="cuda number")
 args = parser.parse_args()
@@ -77,7 +79,7 @@ def train(key):
     x_train = np.linspace(lowb, upb, num=args.ntrain)[:, None]
     x_test = np.linspace(lowb, upb, num=args.ntest)[:, None]
     generate_data = get_data(args.datatype)
-    y_train = generate_data(x_train)
+    y_train = generate_data(x_train, alpha=1000)
     y_target = y_train.copy()
     # Add noise
     if args.noise == 1:
@@ -101,7 +103,7 @@ def train(key):
 
     # parameters of optimizer
     learning_rate = args.lr
-    N_drop = 10000
+    N_drop = 1000
     gamma = 0.95
     sc = optax.exponential_decay(learning_rate, N_drop, gamma)
     optim = optax.adam(learning_rate=sc)

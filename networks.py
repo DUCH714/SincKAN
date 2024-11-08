@@ -22,7 +22,7 @@ def get_network(args, input_dim, output_dim, interval, normalizer, keys):
     elif args.network == 'sinckan':
         features = split_kanshape(input_dim, output_dim, args.kanshape)
         model = sincKAN(features=features, degree=args.degree, len_h=args.len_h, normalizer=normalizer,
-                        init_h=args.init_h, decay=args.decay, key=keys[0])
+                        init_h=args.init_h, decay=args.decay, skip=args.skip, activation=args.activation, key=keys[0])
     elif args.network == 'chebykan':
         features = split_kanshape(input_dim, output_dim, args.kanshape)
         model = chebyKAN(features=features, degree=args.degree, normalizer=normalizer, key=keys[0])
@@ -169,16 +169,13 @@ class chebyKAN(eqx.Module):
 
 class sincKAN(eqx.Module):
     layers: list
-    activation: jax.nn
     normalizer: list
 
-    def __init__(self, features, normalizer, key, degree, len_h, decay, init_h=4.0, activation='tanh'):
+    def __init__(self, features, normalizer, key, degree, len_h, decay, init_h=4.0, activation='tanh', skip=True):
         keys = random.split(key, len(features) + 1)
-        self.layers = [SincLayers(f_in, f_out, degree, key, len_h=len_h, init_h=init_h, decay=decay) for
-                       f_in, f_out, key in
+        self.layers = [SincLayers(f_in, f_out, degree, key, len_h=len_h, init_h=init_h, activation=activation,
+                                  decay=decay, skip=skip) for f_in, f_out, key in
                        zip(features[:-1], features[1:], keys)]
-        if activation == 'tanh':
-            self.activation = tanh
         self.normalizer = [normalizer]
 
     def __call__(self, x, frozen_para):
@@ -280,21 +277,35 @@ class SincLayers(eqx.Module):
     decay: str
     beta: jnp.array
     alpha: jnp.array
+    activation: jax.nn
+    skip: bool
 
-    def __init__(self, input_dim, output_dim, degree, key, init_h, len_h=2, decay='inverse'):
+    def __init__(self, input_dim, output_dim, degree, key, init_h, len_h=2, activation='tanh', decay='inverse',
+                 skip=True):
         self.degree = degree
         self.decay = decay
         self.coeffs = random.normal(key, (input_dim, output_dim, len_h, (degree + 1)))
+        self.coeffs = random.normal(key, (input_dim, output_dim, len_h, (degree + 1))) / jnp.sqrt(
+            input_dim * (degree + 1))
 
         self.len_h = len_h
         self.init_h = init_h
+
+        self.skip = skip
         self.alpha = jnp.ones((input_dim, output_dim))
         self.beta = jnp.zeros((output_dim,))
+        if activation == 'tanh':
+            self.activation = tanh
+        else:
+            self.activation = None
 
     def __call__(self, x, frozen_para):
 
-        y_eqt = x @ self.alpha + self.beta
-        x = tanh(x)
+        if self.skip:
+            y_eqt = x @ self.alpha + self.beta
+
+        if self.activation is not None:
+            x = self.activation(x)
         x = jnp.tile(jnp.expand_dims(x, axis=(1, 2)), (1, 1, self.degree + 1))
 
         k = frozen_para['k']
@@ -304,7 +315,8 @@ class SincLayers(eqx.Module):
         x_interp = jnp.sinc(x)
 
         y = jnp.einsum("ikd,iokd->o", x_interp, self.coeffs)
-        y = y_eqt + y
+        if self.skip:
+            y = y_eqt + y
 
         return y
 
@@ -316,7 +328,6 @@ class SincLayers(eqx.Module):
             h = 1 / (self.init_h * (1 + jnp.arange(self.len_h)))
         elif self.decay == 'exp':
             h = 1 / (self.init_h ** (1 + jnp.arange(self.len_h)))
-
         else:
             assert False, f'{self.decay} does not exist'
 
