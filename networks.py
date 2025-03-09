@@ -10,11 +10,11 @@ from utils import split_kanshape
 def get_network(args, input_dim, output_dim, interval, normalizer, keys):
     if args.network == 'mlp':
         model = MLP(input_dim=input_dim, output_dim=output_dim, N_features=args.features, N_layers=args.layers,
-                    normalizer=normalizer,
+                    normalizer=normalizer, activation=args.activation,
                     key=keys[0])
     elif args.network == 'modifiedmlp':
         model = modifiedMLP(input_dim=input_dim, output_dim=output_dim, N_features=args.features, N_layers=args.layers,
-                            normalizer=normalizer,
+                            normalizer=normalizer, activation=args.activation,
                             key=keys[0])
     elif args.network == 'kan':
         features = split_kanshape(input_dim, output_dim, args.kanshape)
@@ -190,6 +190,29 @@ class sincKAN(eqx.Module):
             frozen.append(self.layers[i].get_frozen_para())
         return frozen
 
+    def update_basis(self, frozen_para,opt_state,init, add_num, key):
+        assert add_num >= 2, print('adding degree should be greater than 2')
+        keys = random.split(key, 2 * len((self.layers)))
+        for i in range(len((self.layers))):
+            degree = self.layers[i].degree
+            new_k = jnp.arange(-jnp.floor((degree + add_num) / 2), jnp.ceil((degree + add_num) / 2) + 1)
+            new_k = jnp.expand_dims(new_k, axis=(0, 1))
+            old_k = frozen_para[i]['k']
+            N_left = old_k[0, 0, 0] - new_k[0, 0, 0]
+            N_right = -old_k[0, 0, -1] + new_k[0, 0, -1]
+            input_dim, output_dim, len_h = self.layers[i].coeffs.shape[:3]
+            coef_left = jnp.zeros((input_dim, output_dim, len_h, int(N_left)))
+            coef_right = jnp.zeros((input_dim, output_dim, len_h, int(N_right)))
+            self.layers[i] = eqx.tree_at(lambda t: t.degree, self.layers[i], degree + add_num)
+            frozen_para[i]['k'] = new_k
+            self.layers[i] = eqx.tree_at(lambda t: t.coeffs, self.layers[i],
+                                         jnp.concatenate([coef_left, self.layers[i].coeffs, coef_right], -1))
+            if init!=1:
+                opt_state[0].mu.layers[i] = eqx.tree_at(lambda t: t.coeffs, opt_state[0].mu.layers[i],
+                                             jnp.concatenate([coef_left, opt_state[0].mu.layers[i].coeffs, coef_right], -1))
+                opt_state[0].nu.layers[i] = eqx.tree_at(lambda t: t.coeffs, opt_state[0].nu.layers[i],
+                                             jnp.concatenate([coef_left, opt_state[0].nu.layers[i].coeffs, coef_right], -1))
+        return opt_state
 
 class KANLayers(eqx.Module):
     k: int
@@ -281,12 +304,14 @@ class SincLayers(eqx.Module):
     skip: bool
 
     def __init__(self, input_dim, output_dim, degree, key, init_h, len_h=2, activation='tanh', decay='inverse',
-                 skip=True):
+                 skip=True, initialization='None'):
         self.degree = degree
         self.decay = decay
-        self.coeffs = random.normal(key, (input_dim, output_dim, len_h, (degree + 1)))
-        self.coeffs = random.normal(key, (input_dim, output_dim, len_h, (degree + 1))) / jnp.sqrt(
-            input_dim * (degree + 1))
+        if initialization == 'Xavier':
+            self.coeffs = random.normal(key, (input_dim, output_dim, len_h, (degree + 1))) / jnp.sqrt(
+                input_dim * (degree + 1))
+        else:
+            self.coeffs = random.normal(key, (input_dim, output_dim, len_h, (degree + 1)))
 
         self.len_h = len_h
         self.init_h = init_h
