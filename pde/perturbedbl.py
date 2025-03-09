@@ -25,6 +25,7 @@ parser.add_argument("--datatype", type=str, default='pbl', help="type of data")
 parser.add_argument("--npoints", type=int, default=1000, help="the number of total dataset")
 parser.add_argument("--ntest", type=int, default=1000, help="the number of testing dataset")
 parser.add_argument("--ntrain", type=int, default=500, help="the number of training dataset for each epochs")
+parser.add_argument("--dim", type=int, default=1, help="dimension of the problem")
 parser.add_argument("--ite", type=int, default=30, help="the number of iteration")
 parser.add_argument("--epochs", type=int, default=50000, help="the number of epochs")
 parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
@@ -98,8 +99,7 @@ def train(key):
     generate_data = get_data(args.datatype)
     y_train = generate_data(x_train, alpha=args.alpha)
     y_test = generate_data(x_test, alpha=args.alpha)
-
-    normalizer = normalization(x_train, args.normalization)
+    normalizer = normalization(interval, args.dim, args.normalization)
     ob_x = x_train
     index_b = [0, -1]
     x_b = x_train[index_b, :]
@@ -192,7 +192,7 @@ def eval(key):
     generate_data = get_data(args.datatype)
     y_test = generate_data(x_test, alpha=args.alpha)
 
-    normalizer = normalization(x_test, args.normalization)
+    normalizer = normalization(interval, args.dim, args.normalization)
 
     input_dim = 1
     output_dim = 1

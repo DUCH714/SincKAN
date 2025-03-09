@@ -25,6 +25,7 @@ parser.add_argument("--datatype", type=str, default='burgers_1d', help="type of 
 parser.add_argument("--npoints", type=int, default=1000, help="the number of total dataset")
 parser.add_argument("--ntest", type=int, default=1000, help="the number of testing dataset")
 parser.add_argument("--ntrain", type=int, default=5000, help="the number of training dataset for each epochs")
+parser.add_argument("--dim", type=int, default=2, help="dimension of the problem")
 parser.add_argument("--ite", type=int, default=30, help="the number of iteration")
 parser.add_argument("--epochs", type=int, default=50000, help="the number of epochs")
 parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
@@ -126,7 +127,7 @@ def train(key):
     t_input = t_train[1:-1, :].reshape(-1, 1)  # 2T x 1
     ob_xt = jnp.concatenate([x_input, t_input], -1)
 
-    normalizer = normalization(x_train, args.normalization)
+    normalizer = normalization(interval, args.dim, args.normalization, is_t=1)
 
     input_dim = 2
     output_dim = 1
@@ -221,7 +222,7 @@ def eval(key):
     t_test_T = t_test[:, -1]
     y_test_T = y_test[:, -1]
 
-    normalizer = normalization(x_test, args.normalization)
+    normalizer = normalization(interval, args.dim, args.normalization, is_t=1)
 
     input_dim = 2
     output_dim = 1
