@@ -31,7 +31,7 @@ python approximation_1d.py --mode train
 
 ## Evaluation
 
-To train the model(s) in the paper, change the directory to the specific directory,
+To evaluation the model(s) in the paper, change the directory to the specific directory,
 
 for example, run command for approximation:
 
