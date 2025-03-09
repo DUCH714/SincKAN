@@ -79,7 +79,7 @@ def train(key):
     x_train = np.linspace(lowb, upb, num=args.ntrain)[:, None]
     x_test = np.linspace(lowb, upb, num=args.ntest)[:, None]
     generate_data = get_data(args.datatype)
-    y_train = generate_data(x_train, alpha=1000)
+    y_train = generate_data(x_train)
     y_target = y_train.copy()
     # Add noise
     if args.noise == 1:
