@@ -245,19 +245,18 @@ def eval(key):
     interval = args.interval.split(',')
     lowb, upb = float(interval[0]), float(interval[1])
     interval = [lowb, upb]
-    keys = random.split(key, 3)
-    # Get hyterparameters
-    vec_c = random.normal(keys[0], shape=(dim - 1,))
-    x_test = np.linspace(lowb, upb, num=args.ntest)[:, None]
-    generate_data = get_data(args.datatype)
-    y_test = generate_data(x_test, alpha=args.alpha, c=vec_c)
+    x_b_set = boundary_points(dim=dim, generate_data=generate_data, interval=interval, alpha=alpha, c=vec_c)
+    x_in_set = interior_points(dim=dim, interval=interval)
+    x_test = jnp.concatenate([x_in_set.sample(num=int(ntest * 0.8), key=keys[0]),
+                              x_b_set.sample(num=int(ntest * 0.2), key=keys[1])[0]], 0)
+
+    y_test = generate_data(x_test, alpha=alpha, c=vec_c)
     normalizer = normalization(x_test, args.normalization)
 
-    input_dim = 1
+    input_dim = dim
     output_dim = 1
 
     # Choose the model
-    keys = random.split(key, 2)
     model = get_network(args, input_dim, output_dim, interval, normalizer, keys)
     frozen_para = model.get_frozen_para()
     path = f'{args.datatype}_{args.network}_{args.seed}_{args.alpha}.eqx'

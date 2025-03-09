@@ -53,10 +53,12 @@ args = parser.parse_args()
 
 os.environ['CUDA_VISIBLE_DEVICES'] = str(args.device)
 
-def solution_jax(x,alpha,c):
-    A = jnp.mean(jnp.exp(-c*x[:-2]*x[1:-1]*x[2:]))
-    B =-alpha * jnp.sum(x ** 2)
-    return A*jnp.exp(B)
+
+def solution_jax(x, alpha, c):
+    A = jnp.mean(jnp.exp(-c * x[:-2] * x[1:-1] * x[2:]))
+    B = -alpha * jnp.sum(x ** 2)
+    return A * jnp.exp(B)
+
 
 def right_hand_side(x, alpha, c, dim):
     u = lambda model, alpha, c, *x: model(jnp.stack([*x]), alpha, c)
@@ -104,9 +106,9 @@ def net(model, frozen_para, *x):
 
 def residual(model, x, frozen_para, r_s):
     dim = x.shape[0]
-    u_output = net(model,frozen_para,*x)
-    f = jnp.sum(jnp.stack([grad(grad(net, argnums=i + 2), argnums=i + 2)(model, frozen_para, *x) for i in range(dim)]))\
-        +jnp.sin(u_output)
+    u_output = net(model, frozen_para, *x)
+    f = jnp.sum(jnp.stack([grad(grad(net, argnums=i + 2), argnums=i + 2)(model, frozen_para, *x) for i in range(dim)])) \
+        + jnp.sin(u_output)
     return f - r_s
 
 
@@ -143,7 +145,7 @@ def train(key):
     interval = args.interval.split(',')
     dim = args.dim
     alpha = args.alpha / dim
-    vec_c = abs(np.random.normal(0,1,(dim - 2,)))
+    vec_c = abs(np.random.normal(0, 1, (dim - 2,)))
     vec_c = vec_c
     ntest = args.ntest
     N_interior = args.n_interior
@@ -186,7 +188,7 @@ def train(key):
             input_points = x_in_set.sample(N_interior, keys[0])
             ob_x = jnp.concatenate([input_points,
                                     vmap(right_hand_side, (0, None, None, None))(input_points, alpha, vec_c, dim,
-                                                                                       ).reshape(-1, 1)],
+                                                                                 ).reshape(-1, 1)],
                                    -1)
             x_b, y_b = x_b_set.sample(N_b, keys[1])
             ob_sup = jnp.concatenate([x_b, y_b], -1)
@@ -241,19 +243,18 @@ def eval(key):
     interval = args.interval.split(',')
     lowb, upb = float(interval[0]), float(interval[1])
     interval = [lowb, upb]
-    keys = random.split(key, 3)
-    # Get hyterparameters
-    vec_c = random.normal(keys[0], shape=(dim - 1,))
-    x_test = np.linspace(lowb, upb, num=args.ntest)[:, None]
-    generate_data = get_data(args.datatype)
-    y_test = generate_data(x_test, alpha=args.alpha, c=vec_c)
+    x_b_set = boundary_points(dim=dim, generate_data=generate_data, interval=interval, alpha=alpha, c=vec_c)
+    x_in_set = interior_points(dim=dim, interval=interval)
+    x_test = jnp.concatenate([x_in_set.sample(num=int(ntest * 0.8), key=keys[0]),
+                              x_b_set.sample(num=int(ntest * 0.2), key=keys[1])[0]], 0)
+
+    y_test = generate_data(x_test, alpha=alpha, c=vec_c)
     normalizer = normalization(x_test, args.normalization)
 
-    input_dim = 1
+    input_dim = dim
     output_dim = 1
 
     # Choose the model
-    keys = random.split(key, 2)
     model = get_network(args, input_dim, output_dim, interval, normalizer, keys)
     frozen_para = model.get_frozen_para()
     path = f'{args.datatype}_{args.network}_{args.seed}_{args.alpha}.eqx'

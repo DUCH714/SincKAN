@@ -95,7 +95,7 @@ def net(model, frozen_para, *x):
 
 
 def residual(model, x, frozen_para, r_s):
-    dim =x.shape[0]
+    dim = x.shape[0]
     f = jnp.sum(jnp.stack([grad(grad(net, argnums=i + 2), argnums=i + 2)(model, frozen_para, *x) for i in range(dim)]))
     return f - r_s
 
@@ -103,8 +103,10 @@ def residual(model, x, frozen_para, r_s):
 def boundary(model, x, frozen_para):
     return net(model, frozen_para, *x)
 
+
 def output_test(model, x, frozen_para):
     return net(model, frozen_para, *x)
+
 
 def compute_loss(model, ob_x, ob_sup, frozen_para):
     res = vmap(residual, (None, 0, None, 0))(model, ob_x[:, :-1], frozen_para, ob_x[:, -1])
@@ -130,7 +132,7 @@ def train(key):
     # Get hyterparameters
     interval = args.interval.split(',')
     dim = args.dim
-    alpha = args.alpha/dim
+    alpha = args.alpha / dim
     ntest = args.ntest
     N_interior = args.n_interior
     N_b = args.n_boundary * dim
@@ -175,7 +177,7 @@ def train(key):
                                    -1)
             x_b, y_b = x_b_set.sample(N_b, keys[1])
             ob_sup = jnp.concatenate([x_b, y_b], -1)
-            
+
         T1 = time.time()
         loss, model, opt_state = make_step(model, ob_x, ob_sup, frozen_para, optim, opt_state, )
         T2 = time.time()
@@ -230,11 +232,10 @@ def eval(key):
     y_test = generate_data(x_test, alpha=args.alpha)
     normalizer = normalization(x_test, args.normalization)
 
-    input_dim = 1
+    input_dim = dim
     output_dim = 1
 
     # Choose the model
-    keys = random.split(key, 2)
     model = get_network(args, input_dim, output_dim, interval, normalizer, keys)
     frozen_para = model.get_frozen_para()
     path = f'{args.datatype}_{args.network}_{args.seed}_{args.alpha}.eqx'
