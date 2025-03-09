@@ -5,84 +5,84 @@ from numpy import arange, exp, cos, sin, e, pi, absolute, meshgrid
 
 
 def get_data(datatype):
-    if datatype == 'sqrt':
-        generate_data = sqrt
-    elif datatype == 'bl':
-        generate_data = boundary_layer
+    if datatype == '100D':
+        generate_data = function_100D
+    elif datatype == '4D':
+        generate_data = function_4D
     elif datatype == 'allen_cahn':
         generate_data = allen_cahn
-    elif datatype == 'schrodinger':
-        generate_data = schrodinger
-    elif datatype == 'sine_gordon':
-        generate_data = sine_gordon
+    elif datatype == 'bl':
+        generate_data = boundary_layer
     elif datatype == 'bl2d':
         generate_data = boundary_layer2d
-    elif datatype == 'sin_low':
-        generate_data = sin_low
-    elif datatype == 'sin_high':
-        generate_data = sin_high
-    elif datatype == 'double_exponential':
-        generate_data = double_exponential
-    elif datatype == 'spectral_bias':
-        generate_data = spectral_bias
-    elif datatype == 'endpoint':
-        generate_data = endpoint_singularity_function
-    elif datatype == 'piecewise':
-        generate_data = piece_wise_function
-    elif datatype == 'multi_sqrt':
-        generate_data = multi_sqrt_function
-    elif datatype == 'ellipj':
-        generate_data = jacobian_elliptic_function
-    elif datatype == 'ellipkinc':
-        generate_data = incomplete_elliptic_integral_of_the_first_kind
-    elif datatype == 'ellipeinc':
-        generate_data = incomplete_elliptic_integral_of_the_second_kind
-    elif datatype == 'jn':
-        generate_data = bessel_function_of_the_first_kind
-    elif datatype == 'yn':
-        generate_data = bessel_function_of_the_second_kind
-    elif datatype == 'nonlinear':
-        generate_data = nonlinear
-    elif datatype == 't_nonlinear':
-        generate_data = t_nonlinear
-    elif datatype == 'pbl':
-        generate_data = pbl
-    elif datatype == 'ns_tg':
-        generate_data = ns_tg
     elif datatype == 'burgers_1d':
         generate_data = burgers_1d
     elif datatype == 'cdiff':
         generate_data = cdiff
-    elif datatype == 'lpmv':
-        generate_data = associated_legendre_function_of_the_first_kind
-    elif datatype == 'sph_harm01':
-        generate_data = spherical_harmonics01
-    elif datatype == 'sph_harm11':
-        generate_data = spherical_harmonics11
-    elif datatype == 'sph_harm02':
-        generate_data = spherical_harmonics02
-    elif datatype == 'sph_harm12':
-        generate_data = spherical_harmonics12
-    elif datatype == 'sph_harm22':
-        generate_data = spherical_harmonics22
+    elif datatype == 'double_exponential':
+        generate_data = double_exponential
+    elif datatype == 'ellipeinc':
+        generate_data = incomplete_elliptic_integral_of_the_second_kind
+    elif datatype == 'ellipkinc':
+        generate_data = incomplete_elliptic_integral_of_the_first_kind
+    elif datatype == 'ellipj':
+        generate_data = jacobian_elliptic_function
+    elif datatype == 'endpoint':
+        generate_data = endpoint_singularity_function
     elif datatype == 'fractal':
         generate_data = fractal_function
+    elif datatype == 'fraction':
+        generate_data = fraction
+    elif datatype == 'jn':
+        generate_data = bessel_function_of_the_first_kind
+    elif datatype == 'lpmv':
+        generate_data = associated_legendre_function_of_the_first_kind
     elif datatype == 'multimodal1':
         generate_data = multimodal_function1
     elif datatype == 'multimodal2':
         generate_data = multimodal_function2
-    elif datatype == '4D':
-        generate_data = function_4D
-    elif datatype == '100D':
-        generate_data = function_100D
+    elif datatype == 'multi_sqrt':
+        generate_data = multi_sqrt_function
+    elif datatype == 'nonlinear':
+        generate_data = nonlinear
+    elif datatype == 'ns_tg':
+        generate_data = ns_tg
+    elif datatype == 'pbl':
+        generate_data = pbl
+    elif datatype == 'piecewise':
+        generate_data = piece_wise_function
     elif datatype == 'poisson':
         generate_data = poisson
     elif datatype == 'poisson_sin':
         generate_data = poisson_sin
-    elif datatype == 'fraction':
-        generate_data = fraction
+    elif datatype == 'schrodinger':
+        generate_data = schrodinger
+    elif datatype == 'sine_gordon':
+        generate_data = sine_gordon
+    elif datatype == 'sin_high':
+        generate_data = sin_high
+    elif datatype == 'sin_low':
+        generate_data = sin_low
+    elif datatype == 'spectral_bias':
+        generate_data = spectral_bias
+    elif datatype == 'sph_harm01':
+        generate_data = spherical_harmonics01
+    elif datatype == 'sph_harm02':
+        generate_data = spherical_harmonics02
+    elif datatype == 'sph_harm11':
+        generate_data = spherical_harmonics11
+    elif datatype == 'sph_harm12':
+        generate_data = spherical_harmonics12
+    elif datatype == 'sph_harm22':
+        generate_data = spherical_harmonics22
+    elif datatype == 'sqrt':
+        generate_data = sqrt
     elif datatype == 'singular_frac':
         generate_data = singular_frac
+    elif datatype == 't_nonlinear':
+        generate_data = t_nonlinear
+    elif datatype == 'yn':
+        generate_data = bessel_function_of_the_second_kind
     else:
         assert False, f'{datatype} does not exist'
     return generate_data
