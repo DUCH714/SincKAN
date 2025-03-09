@@ -121,7 +121,8 @@ def train(key):
     x_input = x_train[1:-1, :].reshape(-1, 1)  # 2T x 1
     t_input = t_train[1:-1, :].reshape(-1, 1)  # 2T x 1
     ob_xt = jnp.concatenate([x_input, t_input], -1)
-    normalizer = normalization(x_train, args.normalization)
+    dim=2 ## (x,t)
+    normalizer = normalization(interval,dim, args.normalization)
 
     input_dim = 2
     output_dim = 1
@@ -214,7 +215,8 @@ def eval(key):
     t_test_T = t_test[:, -1]
     y_test_T = y_test[:, -1]
 
-    normalizer = normalization(x_test, args.normalization)
+    dim=2 ## (x,t)
+    normalizer = normalization(interval,dim, args.normalization)
 
     input_dim = 2
     output_dim = 1
