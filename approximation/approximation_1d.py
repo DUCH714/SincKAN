@@ -87,7 +87,7 @@ def train(key):
         y_train += np.random.normal(0, sigma, y_train.shape)
 
     y_test = generate_data(x_test)
-    normalizer = normalization(x_train, args.normalization)
+    normalizer = normalization(interval,dim=1, is_normalization=args.normalization)
 
     ob_xy = np.concatenate([x_train, y_train], -1)
     input_dim = 1
