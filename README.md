@@ -26,7 +26,7 @@ for example, run command for boundary-layer problems:
 
 ```train
 cd ./pde/
-python bl.py --mode train
+python boundary_layer.py --mode train
 ```
 
 ## Evaluation
@@ -36,8 +36,8 @@ To evaluate the model(s) in the paper, change the directory to the specific dire
 for example, run command for approximation:
 
 ```train
-cd ./approximation/
-python bl.py --mode eval
+cd ./pde/
+python boundary_layer.py --mode eval
 ```
 
 ## Results ($L^2$ Relative errors)
