@@ -329,6 +329,10 @@ class SincLayers(eqx.Module):
         
         if activation == 'tanh':
             self.activation = tanh
+        elif activation == 'sin':
+            self.activation = jnp.sin
+        elif activation == 'cos':
+            self.activation = jnp.cos
         else:
             self.activation = None
 
