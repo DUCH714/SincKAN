@@ -320,11 +320,8 @@ def poisson(x, alpha):
 
 
 def allen_cahn(x, alpha, c):
-    A = np.mean(c * np.cos(x[:, :-1] + np.sin(x[:, 1:]) + x[:, 1:] * np.sin(x[:, :-1])), axis=1)
-    # A = np.mean(np.exp(-c * x[:, :-1] * x[:, 1:]), axis=1)
     B = -alpha * np.sum(x ** 2, axis=1)
-    return (A * np.exp(B))[:, None]
-    # return np.exp(B)[:, None]
+    return np.exp(B)[:, None]
 
 
 def sine_gordon(x, alpha, c):
