@@ -22,7 +22,7 @@ def get_network(args, input_dim, output_dim, interval, normalizer, keys):
     elif args.network == 'sinckan':
         features = split_kanshape(input_dim, output_dim, args.kanshape)
         model = sincKAN(features=features, degree=args.degree, len_h=args.len_h, normalizer=normalizer,
-                        init_h=args.init_h, decay=args.decay, skip=args.skip, activation=args.activation, key=keys[0])
+                        init_h=args.init_h, decay=args.decay, skip=args.skip, activation=args.activation, initialization=args.initialization,key=keys[0])
     elif args.network == 'chebykan':
         features = split_kanshape(input_dim, output_dim, args.kanshape)
         model = chebyKAN(features=features, degree=args.degree, normalizer=normalizer, key=keys[0])
@@ -171,10 +171,11 @@ class sincKAN(eqx.Module):
     layers: list
     normalizer: list
 
-    def __init__(self, features, normalizer, key, degree, len_h, decay, init_h=4.0, activation='tanh', skip=True):
+    def __init__(self, features, normalizer, key, degree, len_h, decay, init_h=4.0, activation='tanh', skip=True,
+                 initialization='None'):
         keys = random.split(key, len(features) + 1)
         self.layers = [SincLayers(f_in, f_out, degree, key, len_h=len_h, init_h=init_h, activation=activation,
-                                  decay=decay, skip=skip) for f_in, f_out, key in
+                                  decay=decay, skip=skip, initialization=initialization) for f_in, f_out, key in
                        zip(features[:-1], features[1:], keys)]
         self.normalizer = [normalizer]
 
@@ -190,7 +191,7 @@ class sincKAN(eqx.Module):
             frozen.append(self.layers[i].get_frozen_para())
         return frozen
 
-    def update_basis(self, frozen_para,opt_state,init, add_num, key):
+    def update_basis(self, frozen_para, opt_state, init, add_num, key):
         assert add_num >= 2, print('adding degree should be greater than 2')
         keys = random.split(key, 2 * len((self.layers)))
         for i in range(len((self.layers))):
@@ -207,12 +208,17 @@ class sincKAN(eqx.Module):
             frozen_para[i]['k'] = new_k
             self.layers[i] = eqx.tree_at(lambda t: t.coeffs, self.layers[i],
                                          jnp.concatenate([coef_left, self.layers[i].coeffs, coef_right], -1))
-            if init!=1:
+            if init != 1:
                 opt_state[0].mu.layers[i] = eqx.tree_at(lambda t: t.coeffs, opt_state[0].mu.layers[i],
-                                             jnp.concatenate([coef_left, opt_state[0].mu.layers[i].coeffs, coef_right], -1))
+                                                        jnp.concatenate(
+                                                            [coef_left, opt_state[0].mu.layers[i].coeffs, coef_right],
+                                                            -1))
                 opt_state[0].nu.layers[i] = eqx.tree_at(lambda t: t.coeffs, opt_state[0].nu.layers[i],
-                                             jnp.concatenate([coef_left, opt_state[0].nu.layers[i].coeffs, coef_right], -1))
+                                                        jnp.concatenate(
+                                                            [coef_left, opt_state[0].nu.layers[i].coeffs, coef_right],
+                                                            -1))
         return opt_state
+
 
 class KANLayers(eqx.Module):
     k: int
@@ -307,10 +313,10 @@ class SincLayers(eqx.Module):
     skip_mode: int
 
     def __init__(self, input_dim, output_dim, degree, key, init_h, len_h=2, activation='tanh', decay='inverse',
-                 skip=True, initialization='None',skip_mode=1):
+                 skip=True, initialization='None', skip_mode=1):
         self.degree = degree
         self.decay = decay
-        keys= random.split(key,2)
+        keys = random.split(key, 2)
         if initialization == 'Xavier':
             self.coeffs = random.normal(keys[0], (input_dim, output_dim, len_h, (degree + 1))) / jnp.sqrt(
                 input_dim * (degree + 1))
@@ -325,8 +331,8 @@ class SincLayers(eqx.Module):
         self.beta = jnp.zeros((output_dim,))
         self.weight1 = jnp.zeros((1,))
         self.weight2 = jnp.ones((1,))
-        self.skip_mode = 1
-        
+        self.skip_mode = skip_mode
+
         if activation == 'tanh':
             self.activation = tanh
         elif activation == 'sin':
@@ -353,12 +359,12 @@ class SincLayers(eqx.Module):
 
         y = jnp.einsum("ikd,iokd->o", x_interp, self.coeffs)
         if self.skip:
-            if self.skip_mode==1:
+            if self.skip_mode == 1:
                 y = y_eqt + y
-            elif self.skip_mode==2:
-                y = self.weight2*y_eqt + self.weight1*y
-            elif self.skip_mode==3:
-                y = (1-self.weight1) * y_eqt + self.weight1 * y
+            elif self.skip_mode == 2:
+                y = self.weight2 * y_eqt + self.weight1 * y
+            elif self.skip_mode == 3:
+                y = (1 - self.weight1) * y_eqt + self.weight1 * y
 
         return y
 
