@@ -22,11 +22,11 @@ To generate data, you can use the current dataset in data.py or you can add new 
 
 To train the model(s) in the paper, change the directory to the specific directory,
 
-for example, run command for approximation:
+for example, run command for boundary-layer problems:
 
 ```train
-cd ./approximation/
-python approximation_1d.py --mode train
+cd ./pde/
+python bl.py --mode train
 ```
 
 ## Evaluation
@@ -37,7 +37,7 @@ for example, run command for approximation:
 
 ```train
 cd ./approximation/
-python approximation_1d.py --mode eval
+python bl.py --mode eval
 ```
 
 ## Results ($L^2$ Relative errors)
