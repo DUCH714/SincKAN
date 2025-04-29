@@ -25,7 +25,7 @@ def normalization(interval, dim, is_normalization,is_t=0):
         x_fun = lambda x: x
     return x_fun
 
-def normalization_bypoints(x,is_normalization):
+def normalization_by_points(x,is_normalization):
     max=x.max()
     min=x.min()
     if is_normalization==1:

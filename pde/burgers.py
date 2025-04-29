@@ -43,6 +43,7 @@ parser.add_argument("--len_h", type=int, default=1, help='lenth of k for sinckan
 parser.add_argument("--init_h", type=float, default=2.0, help='initial value of h')
 parser.add_argument("--decay", type=str, default='inverse', help='decay type for h')
 parser.add_argument("--embed_feature", type=int, default=10, help='embedding features of the modified MLP')
+parser.add_argument("--initialization", type=str, default=None, help='the type of initialization of SincKAN')
 parser.add_argument("--device", type=int, default=3, help="cuda number")
 args = parser.parse_args()
 
