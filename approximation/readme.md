@@ -2,7 +2,7 @@
 
 For approximation, hyperparmeters depends on different experiments:
 
-# Implicit function
+## Implicit function
 
 ellipj:
 ```train
@@ -19,7 +19,7 @@ sph_harm:
 python approximation_hd_implicit.py  --datatype sph_harm11 --network sinckan --len_h 4 --degree 80
 ```
 
-# Update basis
+## Update basis
 
 ```train
 python approximation_1d_update_basis.py
