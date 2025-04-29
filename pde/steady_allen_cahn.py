@@ -25,10 +25,10 @@ parser.add_argument("--datatype", type=str, default='allen_cahn', help="type of 
 parser.add_argument("--ntest", type=int, default=10000, help="the number of testing dataset")
 parser.add_argument("--n_interior", type=int, default=2000,
                     help="the number of interior training dataset for each epochs")
-parser.add_argument("--n_boundary", type=int, default=100,
+parser.add_argument("--n_boundary", type=int, default=5000,
                     help="the number of boundary training dataset for each epochs")
-parser.add_argument("--dim", type=int, default=40, help="dimension of the problem")
-parser.add_argument("--ite", type=int, default=20, help="the number of iteration")
+parser.add_argument("--dim", type=int, default=100, help="dimension of the problem")
+parser.add_argument("--ite", type=int, default=100, help="the number of iteration")
 parser.add_argument("--epochs", type=int, default=1000, help="the number of epochs")
 parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
 parser.add_argument("--seed", type=int, default=0, help="the name")

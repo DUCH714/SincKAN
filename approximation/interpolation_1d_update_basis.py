@@ -31,9 +31,9 @@ parser.add_argument("--noise", type=int, default=0, help="add noise or not, 0: n
 parser.add_argument("--normalization", type=int, default=0, help="add normalization or not, 0: no normalization, "
                                                                  "1: add normalization")
 parser.add_argument("--interval", type=str, default="0.0,1.0", help='boundary of the interval')
-parser.add_argument("--network", type=str, default="mlp", help="type of network")
+parser.add_argument("--network", type=str, default="sinckan", help="type of network")
 parser.add_argument("--kanshape", type=str, default="16", help='shape of the network (KAN)')
-parser.add_argument("--degree", type=int, default=100, help='degree of polynomials')
+parser.add_argument("--degree", type=int, default=8, help='degree of polynomials')
 parser.add_argument("--features", type=int, default=100, help='width of the network')
 parser.add_argument("--layers", type=int, default=10, help='depth of the network')
 parser.add_argument("--len_h", type=int, default=2, help='lenth of k for sinckan')
@@ -113,7 +113,10 @@ def train(key):
     input_points = random.choice(keys[0], ob_xy, shape=(N_train,), replace=False)
     history = []
     T = []
+    # for final degree=100
     list = [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4, 4, 4]
+    # for final degree=96
+    # list = [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4, 4]
     i = 0
     update_basis = args.update_basis
     for j in range(ite * N_epochs):
