@@ -193,7 +193,6 @@ class sincKAN(eqx.Module):
 
     def update_basis(self, frozen_para, opt_state, init, add_num, key):
         assert add_num >= 2, print('adding degree should be greater than 2')
-        keys = random.split(key, 2 * len((self.layers)))
         for i in range(len((self.layers))):
             degree = self.layers[i].degree
             new_k = jnp.arange(-jnp.floor((degree + add_num) / 2), jnp.ceil((degree + add_num) / 2) + 1)
