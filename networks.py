@@ -300,25 +300,33 @@ class SincLayers(eqx.Module):
     decay: str
     beta: jnp.array
     alpha: jnp.array
+    weight1: jnp.array
+    weight2: jnp.array
     activation: jax.nn
     skip: bool
+    skip_mode: int
 
     def __init__(self, input_dim, output_dim, degree, key, init_h, len_h=2, activation='tanh', decay='inverse',
-                 skip=True, initialization='None'):
+                 skip=True, initialization='None',skip_mode=1):
         self.degree = degree
         self.decay = decay
+        keys= random.split(key,2)
         if initialization == 'Xavier':
-            self.coeffs = random.normal(key, (input_dim, output_dim, len_h, (degree + 1))) / jnp.sqrt(
+            self.coeffs = random.normal(keys[0], (input_dim, output_dim, len_h, (degree + 1))) / jnp.sqrt(
                 input_dim * (degree + 1))
         else:
-            self.coeffs = random.normal(key, (input_dim, output_dim, len_h, (degree + 1)))
+            self.coeffs = random.normal(keys[0], (input_dim, output_dim, len_h, (degree + 1)))
 
         self.len_h = len_h
         self.init_h = init_h
 
         self.skip = skip
-        self.alpha = jnp.ones((input_dim, output_dim))
+        self.alpha = random.normal(keys[1], (input_dim, output_dim)) / jnp.sqrt((input_dim + output_dim) / 2)
         self.beta = jnp.zeros((output_dim,))
+        self.weight1 = jnp.zeros((1,))
+        self.weight2 = jnp.ones((1,))
+        self.skip_mode = 1
+        
         if activation == 'tanh':
             self.activation = tanh
         else:
@@ -341,7 +349,12 @@ class SincLayers(eqx.Module):
 
         y = jnp.einsum("ikd,iokd->o", x_interp, self.coeffs)
         if self.skip:
-            y = y_eqt + y
+            if self.skip_mode==1:
+                y = y_eqt + y
+            elif self.skip_mode==2:
+                y = self.weight2*y_eqt + self.weight1*y
+            elif self.skip_mode==3:
+                y = (1-self.weight1) * y_eqt + self.weight1 * y
 
         return y
 
