@@ -1,4 +1,5 @@
 import numpy as np
+import jax.numpy as jnp
 import jax
 
 
@@ -56,3 +57,25 @@ def modify_second_order(alpha, w=None):
     beta = 1 - alpha / 2
     w = beta * w0 + (1 - beta) * w1
     return w
+
+def sample_points_on_square_boundary(num_pts_per_side):
+    # Sample points along the top side (x=1 to x=0, y=1)
+    top_coords = jnp.linspace(0, 1, num_pts_per_side)
+    top = jnp.column_stack((top_coords, jnp.ones_like(top_coords)))
+
+    # Sample points along the bottom side (x=0 to x=1, y=0)
+    bottom_coords = jnp.linspace(0, 1, num_pts_per_side)
+    bottom = jnp.column_stack((bottom_coords, jnp.zeros_like(bottom_coords)))
+
+    # Sample points along the left side (x=0, y=1 to y=0)
+    left_coords = jnp.linspace(0, 1, num_pts_per_side)[1:-1]
+    left = jnp.column_stack((jnp.zeros_like(left_coords), left_coords))
+
+    # Sample points along the right side (x=1, y=0 to y=1)
+    right_coords = jnp.linspace(0, 1, num_pts_per_side)[1:-1]
+    right = jnp.column_stack((jnp.ones_like(right_coords), right_coords))
+
+    # Combine the points from all sides
+    points = jnp.vstack((top, bottom, left, right))
+
+    return points[:,0],points[:,1]
