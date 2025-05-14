@@ -65,7 +65,7 @@ python interpolation_hd.py --epochs 4000 --network sinckan --kanshape 16 --degre
 
 exp-sin-4d:
 ```train
-python interpolation_hd.py --epochs 10000 --network sinckan --kanshape 16,16 --degree 170 --normalization 0 --datatype 4D --dim 2 --init_h 2.0 --len_h 5 --noise 0 --activation None --initialization 'Xavier' --skip 0 --ntrain 2000 --ntest 4000 --seed 0 --device 0
+python interpolation_hd.py --epochs 4000 --network sinckan --kanshape 16 --degree 120 --normalization 0 --datatype 4D --dim 4 --len_h 6 --noise 0 --activation 'tanh' --skip 0 --ntrain 2000 --ntest 4000 --seed 0 --device 0
 ```
 
 ## 100-dimensional function
