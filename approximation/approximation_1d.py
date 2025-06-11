@@ -17,7 +17,7 @@ from jax import debug
 
 from data import get_data
 from networks import get_network
-from utils import normalization
+from utils import normalization_by_points
 
 parser = argparse.ArgumentParser(description="SincKAN")
 parser.add_argument("--datatype", type=str, default='bl', help="type of data")
