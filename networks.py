@@ -22,7 +22,7 @@ def get_network(args, input_dim, output_dim, interval, normalizer, keys):
     elif args.network == 'sinckan':
         features = split_kanshape(input_dim, output_dim, args.kanshape)
         model = sincKAN(features=features, degree=args.degree, len_h=args.len_h, normalizer=normalizer,
-                        init_h=args.init_h, decay=args.decay, skip=args.skip, activation=args.activation, initialization=args.initialization,key=keys[0])
+                        init_h=args.init_h, decay=args.decay, skip=args.skip, activation=args.activation,key=keys[0])
     elif args.network == 'chebykan':
         features = split_kanshape(input_dim, output_dim, args.kanshape)
         model = chebyKAN(features=features, degree=args.degree, normalizer=normalizer, key=keys[0])
