@@ -37,6 +37,19 @@ def normalization_by_points(x,is_normalization):
     else:
         x_fun = lambda x: x
     return x_fun
+
+def normalization_hd(interval, dim, is_normalization):
+    if is_normalization == 1:
+        max = interval[1] * jnp.ones(dim)
+        min = interval[0] * jnp.ones(dim)
+        if max != 1 or min != -1:
+            mean = (max + min) / 2
+            x_fun = lambda x: 2 * (x - mean) / (max - min)
+        else:
+            x_fun = lambda x: x
+    else:
+        x_fun = lambda x: x
+    return x_fun
     
 ## matrix for fractional PDEs
 def get_matrix_1d(alpha, N_x,interval, num_bc=2):
@@ -92,3 +105,4 @@ def sample_points_on_square_boundary(num_pts_per_side):
     points = jnp.vstack((top, bottom, left, right))
 
     return points[:,0],points[:,1]
+
