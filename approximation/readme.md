@@ -1,6 +1,6 @@
 # Approximation
 
-For approximation, hyperparmeters depends on different experiments:
+For approximation, hyperparmeters depend on different experiments:
 
 ## One-dimensional function
 
@@ -60,6 +60,12 @@ multimodal2-2d:
 ```train
 python interpolation_hd.py --epochs 4000 --network sinckan --kanshape 16 --degree 100 --normalization 0 --datatype multimodal2 --dim 2 --len_h 6 --noise 0 --activation 'tanh' --skip 0 --ntrain 2000 --ntest 4000 --seed 0 --device 0
 ```
+
+spectral_bias2D:
+```train
+python interpolation_hd.py --epochs 2000 --network sinckan --normalization 0 --datatype spectral_bias2D --interval=-2.0,2.0 --dim 2 --kanshape 8,8,8,8 --degree 64 --init_h 2 --len_h 2 --noise 0 --activation none --skip 0 --npoints 100 --ntrain 10000 --device 0
+```
+
 
 ## Four-dimensional function
 
