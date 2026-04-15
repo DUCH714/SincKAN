@@ -1,30 +1,22 @@
 import sys
+from pathlib import Path
 
-sys.path.append('../')
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 import jax
 import jax.numpy as jnp
 import equinox as eqx
 import numpy as np
 import time
 import optax
-from jax.nn import gelu, silu, tanh
-from jax.lax import scan, stop_gradient
-from jax import random, jit, vmap, grad
+from jax import random, vmap
 import os
-import scipy
-import matplotlib.pyplot as plt
 import argparse
 
 from data import get_data
 from networks import get_network
-from utils import normalization_by_points
-from numpy import pi
-
-import argparse
+from utils import normalization
 
 parser = argparse.ArgumentParser(description="SincKAN")
-parser.add_argument("--mode", type=str, default='train', help="mode of the network, "
-                                                              "train: start training, eval: evaluation")
 parser.add_argument("--datatype", type=str, default='scaling', help="type of data")
 parser.add_argument("--npoints", type=int, default=5000, help="the number of total dataset")
 parser.add_argument("--ntest", type=int, default=1000, help="the number of testing dataset")
@@ -34,7 +26,7 @@ parser.add_argument("--ite", type=int, default=20, help="the number of iteration
 parser.add_argument("--epochs", type=int, default=5000, help="the number of epochs")
 parser.add_argument("--lr", type=float, default=1e-3, help="learning rate")
 parser.add_argument("--seed", type=int, default=0, help="the name")
-parser.add_argument("--activation", type=str, default='tanh', help='the activation function')
+parser.add_argument("--activation", type=str, default='none', help="activation function")
 parser.add_argument("--interval", type=str, default="-1.0,1.0", help='boundary of the interval')
 parser.add_argument("--noise", type=int, default=0, help="add noise or not, 0: no noise, 1: add noise")
 parser.add_argument("--normalization", type=int, default=0, help="add normalization or not, 0: no normalization, 1: add normalization")
@@ -48,6 +40,7 @@ parser.add_argument("--init_h", type=float, default=2.0, help='initial value of 
 parser.add_argument("--device", type=int, default=7, help="cuda number")
 parser.add_argument("--decay", type=str, default='inverse', help='exponent for h')
 parser.add_argument("--skip", type=int, default=0, help='1: use skip connection for sinckan')
+parser.add_argument("--sinc_mode", type=str, default='vanilla', help='the mode of the sinc function for sinckan')
 parser.add_argument("--embed_feature", type=int, default=10, help='embedding features of the modified MLP')
 parser.add_argument("--initialization", type=str, default='Xavier', help='random initialization of the parameters')
 args = parser.parse_args()
@@ -105,7 +98,6 @@ def train(key):
     x_test = x_in_set.sample(num=ntest, key=keys[1])
     generate_data = get_data(args.datatype)
     y_train = generate_data(x_train)
-    y_target = y_train.copy()
     # Add noise
     if args.noise == 1:
         sigma = 0.01
@@ -226,63 +218,8 @@ def train(key):
         f.write(res)
 
 
-def eval(key): # evaluate the trained model on a new test set and plot it
-    # Generate sample data
-    dim = args.dim
-    ntest = args.ntest
-    N_train = args.ntrain
-    N_epochs = args.epochs
-    learning_rate = args.lr
-    ite = args.ite
-
-    # Generate sampled data
-    keys = random.split(key, 3)
-    interval = args.interval.split(',')
-    lowb, upb = float(interval[0]), float(interval[1])
-    interval = [lowb, upb]
-    x_in_set = training_points(dim=dim, interval=interval)
-    x_train = x_in_set.sample(num=N_train, key=keys[0])
-    x_test = x_in_set.sample(num=ntest, key=keys[1])
-    generate_data = get_data(args.datatype)
-    y_train = generate_data(x_train)
-    y_target = y_train.copy()
-    # Add noise
-    if args.noise == 1:
-        sigma = 0.01
-        y_train += np.random.normal(0, sigma, y_train.shape)
-
-    y_test = generate_data(x_test)
-    normalizer = normalization(interval, dim, args.normalization)
-    input_dim = dim
-    output_dim = 1
-    # Choose the model
-    keys = random.split(key, 2)
-    model = get_network(args, input_dim, output_dim, interval, normalizer, keys)
-    path = f'{args.datatype}_{args.network}_{args.seed}.eqx'
-    frozen_para = model.get_frozen_para()
-    # model = eqx.tree_deserialise_leaves(path, model)
-    y_pred = vmap(net, (None, None, 0))(model, frozen_para, x_test)
-    mse_error = jnp.mean((y_pred.flatten() - y_test.flatten()) ** 2)
-    relative_error = jnp.linalg.norm(y_pred.flatten() - y_test.flatten()) / jnp.linalg.norm(y_test.flatten())
-    print(f'testing mse: {mse_error},relative: {relative_error}')
-
-    plt.figure(figsize=(10, 5))
-    plt.plot(x_test, y_test, 'r', label='Original Data')
-    plt.plot(x_test, y_pred, 'b-', label='SincKAN')
-    plt.title('Comparison of SincKAN and MLP Interpolations f(x)')
-    plt.xlabel('x')
-    plt.ylabel('f(x)')
-    plt.legend()
-    path = f'{args.datatype}_{args.network}_{args.seed}.png'
-    plt.savefig(path)
-
-
-
-
-
 if __name__ == "__main__":
     seed = args.seed
     np.random.seed(seed)
     key = random.PRNGKey(seed)
     train(key)
-    #eval(key)

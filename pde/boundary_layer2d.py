@@ -1,17 +1,14 @@
 import sys
+from pathlib import Path
 
-sys.path.append('../')
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 import jax.numpy as jnp
 import equinox as eqx
 import numpy as np
 import optax
 import time
-from jax.nn import gelu, silu, tanh
-from jax.lax import scan, stop_gradient
-from jax import random, jit, vmap, grad
+from jax import random, vmap, grad
 import os
-import scipy
-import matplotlib.pyplot as plt
 import argparse
 import jax
 from data import get_data
@@ -19,8 +16,6 @@ from networks import get_network
 from utils import normalization
 
 parser = argparse.ArgumentParser(description="SincKAN")
-parser.add_argument("--mode", type=str, default='train', help="mode of the network, "
-                                                              "train: start training, eval: evaluation")
 parser.add_argument("--datatype", type=str, default='bl2d', help="type of data")
 parser.add_argument("--npoints", type=int, default=100, help="the number of total dataset")
 parser.add_argument("--ntest", type=int, default=100, help="the number of testing dataset")
@@ -30,6 +25,7 @@ parser.add_argument("--ite", type=int, default=30, help="the number of iteration
 parser.add_argument("--epochs", type=int, default=50000, help="the number of epochs")
 parser.add_argument("--lr", type=float, default=1e-2, help="learning rate")
 parser.add_argument("--seed", type=int, default=0, help="the name")
+parser.add_argument("--activation", type=str, default='tanh', help='the activation function')
 parser.add_argument("--noise", type=int, default=0, help="add noise or not, 0: no noise, 1: add noise")
 parser.add_argument("--normalization", type=int, default=0, help="add normalization or not, 0: no normalization, "
                                                                  "1: add normalization")
@@ -42,6 +38,8 @@ parser.add_argument("--layers", type=int, default=10, help='depth of the network
 parser.add_argument("--len_h", type=int, default=1, help='lenth of k for sinckan')
 parser.add_argument("--init_h", type=float, default=2.0, help='initial value of h')
 parser.add_argument("--decay", type=str, default='inverse', help='decay type for h')
+parser.add_argument("--skip", type=int, default=1, help='1: use skip connection for sinckan')
+parser.add_argument("--sinc_mode", type=str, default='vanilla', help='the mode of the sinc function for sinckan')
 parser.add_argument("--embed_feature", type=int, default=10, help='embedding features of the modified MLP')
 parser.add_argument("--alpha", type=float, default=100, help='boundary layer parameters')
 parser.add_argument("--initialization", type=str, default=None, help='the type of initialization of SincKAN')
@@ -57,12 +55,13 @@ def net(model, x, y, frozen_para):
 
 def residual(model, x, y, frozen_para, alpha):
     '''
-    u_xx/alpha+u_x=0
-    :param model:
-    :param x:
-    :param frozen_para:
-    :param alpha:
-    :return:
+    u_xx/alpha+u_x+u_yy/alpha+u_y=0
+    :param model: the neural network model
+    :param x: the input variable
+    :param y: the input variable
+    :param frozen_para: the frozen parameters of the model
+    :param alpha: the boundary layer parameter
+    :return: the residual of the differential equation
     '''
 
     u_x = grad(net, argnums=1)(model, x, y, frozen_para)
@@ -197,51 +196,8 @@ def train(key):
         f.write(res)
 
 
-def eval(key):
-    # Generate sample data
-    interval = args.interval.split(',')
-    lowb, upb = float(interval[0]), float(interval[1])
-    interval = [lowb, upb]
-    x1_test, x2_test = np.meshgrid(*[np.linspace(lowb, upb, num=args.ntest)] * 2)
-    generate_data = get_data(args.datatype)
-    u_test = generate_data(x1_test, x2_test, alpha=args.alpha)
-    x1_test = x1_test.reshape(-1, 1)
-    x2_test = x2_test.reshape(-1, 1)
-
-    normalizer = normalization(interval, args.dim, args.normalization)
-
-    input_dim = 2
-    output_dim = 1
-    # Choose the model
-    keys = random.split(key, 2)
-    model = get_network(args, input_dim, output_dim, interval, normalizer, keys)
-    frozen_para = model.get_frozen_para()
-    path = f'{args.datatype}_{args.network}_{args.seed}.eqx'
-    model = eqx.tree_deserialise_leaves(path, model)
-
-    u_pred = vmap(net, (None, 0, 0, None))(model, x1_test[:, 0], x2_test[:, 0], frozen_para)
-    mse_error = jnp.mean((u_pred.flatten() - u_test.flatten()) ** 2)
-    relative_error = jnp.linalg.norm(u_pred.flatten() - u_test.flatten()) / jnp.linalg.norm(u_test.flatten())
-    print(f'testing mse: {mse_error:.2e},relative: {relative_error:.2e}')
-
-    plt.figure(figsize=(10, 5))
-    plt.contourf(x1_test.reshape(100, 100), x2_test.reshape(100, 100), u_test.reshape(100, 100))
-    plt.title('target')
-    path = f'{args.datatype}_{args.network}_{args.seed}_test.png'
-    plt.savefig(path)
-
-    plt.figure(figsize=(10, 5))
-    plt.contourf(x1_test.reshape(100, 100), x2_test.reshape(100, 100), u_pred.reshape(100, 100))
-    plt.title('prediction')
-    path = f'{args.datatype}_{args.network}_{args.seed}_pred.png'
-    plt.savefig(path)
-
-
 if __name__ == "__main__":
     seed = args.seed
     np.random.seed(seed)
     key = random.PRNGKey(seed)
-    if args.mode == 'train':
-        train(key)
-    elif args.mode == 'eval':
-        eval(key)
+    train(key)

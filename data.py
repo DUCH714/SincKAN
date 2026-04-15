@@ -1,7 +1,12 @@
 import numpy as np
 import scipy
-from scipy.special import ellipj, ellipkinc, ellipeinc, jn, yn, lpmv, sph_harm, gamma
-from numpy import arange, exp, cos, sin, e, pi, absolute, meshgrid
+from scipy.special import ellipj, ellipkinc, ellipeinc, jn, yn, lpmv, gamma
+from numpy import exp, cos, sin, e, pi, absolute
+
+try:
+    from scipy.special import sph_harm
+except ImportError:
+    from scipy.special import sph_harm_y as sph_harm
 
 
 def get_data(datatype):
@@ -107,6 +112,14 @@ def sqrt(x):
     y[mask1]= 0
     mask2= x>= 0
     y[mask2]= x[mask2]** 0.5
+    return y
+
+
+def multi_sqrt_function(x):
+    x = np.asarray(x)
+    y = np.zeros_like(x)
+    mask = (x >= 0) & (x <= 1)
+    y[mask] = x[mask] ** 0.5 * (1 - x[mask]) ** (3 / 4)
     return y
 
 
@@ -266,33 +279,51 @@ def spherical_harmonics22(theta):
     return y
 
 
-def fractal_function(x, y):
+def fractal_function(x, y=None):
+    if y is None:
+        points = np.asarray(x)
+        x = points[..., 0]
+        y = points[..., 1]
     z= np.sin(10* np.pi* x)* np.cos(10* np.pi* y)+ np.sin(np.pi*(x** 2+ y** 2))
     z+= np.abs(x- y)+(np.sin(5* x* y)/(0.1+ np.abs(x+ y)))
     z*= np.exp(-0.1*(x** 2+ y** 2))
     return z
 
 
-def multimodal_function1(x, y):
+def multimodal_function1(x, y=None):
+    if y is None:
+        points = np.asarray(x)
+        x = points[..., 0]
+        y = points[..., 1]
     z=-absolute(sin(x)* cos(y)* exp(absolute(1-(np.sqrt(x** 2+ y** 2)/ pi))))
     return z
 
 
-def multimodal_function2(x, y):
+def multimodal_function2(x, y=None):
+    if y is None:
+        points = np.asarray(x)
+        x = points[..., 0]
+        y = points[..., 1]
     z=-20.0* exp(-0.2* np.sqrt(0.5*(x** 2+ y** 2)))- exp(0.5*(cos(2* pi* x)+ cos(2 * pi* y)))+ e+ 20
     return z
 
 
-def function_4D(x1, x2, x3, x4):
+def function_4D(x1, x2=None, x3=None, x4=None):
+    if x2 is None:
+        points = np.asarray(x1)
+        x1 = points[..., 0]
+        x2 = points[..., 1]
+        x3 = points[..., 2]
+        x4 = points[..., 3]
     z= np.exp(0.5* np.sin(np.pi*(x1** 2+ x2** 2))+ 0.5* np.sin(np.pi*(x3** 2+ x4**2)))
     return z
 
 
 def function_100D(x):
     x= np.asarray(x)
-    if len(x)!= 100:
-        raise ValueError("Input should be a 100-dimensional vector.")
-    z= exp(0.01* np.sum(sin(pi* x/ 2)** 2))
+    if x.shape[-1] != 100:
+        raise ValueError("Input should have last dimension 100.")
+    z= exp(0.01* np.sum(sin(pi* x/ 2)** 2, axis=-1))
     return z
 
 

@@ -26,19 +26,12 @@ for example, run command for boundary-layer problems:
 
 ```train
 cd ./pde/
-python boundary_layer.py --mode train
+python boundary_layer.py
 ```
 
-## Evaluation
+## Visualization
 
-To evaluate the model(s) in the paper, change the directory to the specific directory,
-
-for example, run command for approximation:
-
-```train
-cd ./pde/
-python boundary_layer.py --mode eval
-```
+For plot the the figures, after traing, one can move the .npz and .eqx files to plot/ and the use the corresponding codes in sinc_plot.ipynb.
 
 ## Results ($L^2$ Relative errors)
 We demostrate partial results of our paper:
@@ -47,3 +40,4 @@ We demostrate partial results of our paper:
 |------------|-----------------|-----------------|-----------------|
 | pbl        | 2.89e-2 ± 3.09e-2 | 4.48e-3 ± 4.20e-3 | 1.88e-3 ± 8.55e-4 |
 | bl_1000    | 9.87 ± 8.70 | 11.3 ± 8.79 | 5.48e-3 ± 3.45e-3 | 
+

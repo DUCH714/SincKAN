@@ -1,6 +1,5 @@
 import numpy as np
 import jax.numpy as jnp
-import jax
 
 
 def split_kanshape(input_dim, output_dim, shape):
@@ -17,6 +16,7 @@ def normalization(interval, dim, is_normalization,is_t=0):
     if is_normalization == 1:
         max = interval[1] * jnp.ones(dim-is_t)
         min = interval[0] * jnp.ones(dim-is_t)
+        mean = (max + min) / 2
         if is_t==0:
             x_fun = lambda x: 2 * (x - mean) / (max - min)
         else:
@@ -32,19 +32,6 @@ def normalization_by_points(x,is_normalization):
         if max!=1 or min!=-1:
             mean=(max+min)/2
             x_fun=lambda x: 2*(x-mean)/(max-min)
-        else:
-            x_fun = lambda x: x
-    else:
-        x_fun = lambda x: x
-    return x_fun
-
-def normalization_hd(interval, dim, is_normalization):
-    if is_normalization == 1:
-        max = interval[1] * jnp.ones(dim)
-        min = interval[0] * jnp.ones(dim)
-        if max != 1 or min != -1:
-            mean = (max + min) / 2
-            x_fun = lambda x: 2 * (x - mean) / (max - min)
         else:
             x_fun = lambda x: x
     else:

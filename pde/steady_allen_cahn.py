@@ -1,17 +1,14 @@
 import sys
+from pathlib import Path
 
-sys.path.append('../')
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 import jax.numpy as jnp
 import equinox as eqx
 import numpy as np
 import optax
 import time
-from jax.nn import gelu, silu, tanh
-from jax.lax import scan, stop_gradient
-from jax import random, jit, vmap, grad
+from jax import random, vmap, grad
 import os
-import scipy
-import matplotlib.pyplot as plt
 import argparse
 import jax
 from data import get_data
@@ -19,8 +16,6 @@ from networks import get_network
 from utils import normalization
 
 parser = argparse.ArgumentParser(description="SincKAN")
-parser.add_argument("--mode", type=str, default='train', help="mode of the network, "
-                                                              "train: start training, eval: evaluation")
 parser.add_argument("--datatype", type=str, default='allen_cahn', help="type of data")
 parser.add_argument("--ntest", type=int, default=10000, help="the number of testing dataset")
 parser.add_argument("--n_interior", type=int, default=2000,
@@ -46,6 +41,7 @@ parser.add_argument("--len_h", type=int, default=1, help='lenth of k for sinckan
 parser.add_argument("--init_h", type=float, default=2.0, help='initial value of h')
 parser.add_argument("--decay", type=str, default='inverse', help='decay type for h')
 parser.add_argument("--skip", type=int, default=1, help='1: use skip connection for sinckan')
+parser.add_argument("--sinc_mode", type=str, default='taylor', help='the mode of the sinc function for sinckan')
 parser.add_argument("--embed_feature", type=int, default=10, help='embedding features of the modified MLP')
 parser.add_argument("--alpha", type=float, default=10, help='parameters for the width of poission')
 parser.add_argument("--initialization", type=str, default=None, help='the type of initialization of SincKAN')
@@ -108,6 +104,14 @@ def net(model, frozen_para, *x):
 
 
 def residual(model, x, frozen_para, r_s):
+    '''
+    -\Delta u + u - u^3 = f
+    :param model: the neural network model
+    :param x: the input variable
+    :param frozen_para: the frozen parameters of the model
+    :param r_s: the right hand side of the equation
+    :return: the residual of the differential equation
+    '''
     dim = x.shape[0]
     u_output = net(model, frozen_para, *x)
     f = jnp.sum(jnp.stack([grad(grad(net, argnums=i + 2), argnums=i + 2)(model, frozen_para, *x) for i in range(dim)])) \
@@ -240,50 +244,8 @@ def train(key):
         f.write(res)
 
 
-def eval(key):
-    # Generate sampled data
-    dim = args.dim
-    interval = args.interval.split(',')
-    lowb, upb = float(interval[0]), float(interval[1])
-    interval = [lowb, upb]
-    x_b_set = boundary_points(dim=dim, generate_data=generate_data, interval=interval, alpha=alpha, c=vec_c)
-    x_in_set = interior_points(dim=dim, interval=interval)
-    x_test = jnp.concatenate([x_in_set.sample(num=int(ntest * 0.8), key=keys[0]),
-                              x_b_set.sample(num=int(ntest * 0.2), key=keys[1])[0]], 0)
-
-    y_test = generate_data(x_test, alpha=alpha, c=vec_c)
-    normalizer = normalization(x_test, args.normalization)
-
-    input_dim = dim
-    output_dim = 1
-
-    # Choose the model
-    model = get_network(args, input_dim, output_dim, interval, normalizer, keys)
-    frozen_para = model.get_frozen_para()
-    path = f'{args.datatype}_{args.network}_{args.seed}_{args.alpha}.eqx'
-    model = eqx.tree_deserialise_leaves(path, model)
-
-    y_pred = vmap(net, (None, 0, None))(model, x_test[:, 0], frozen_para)
-    mse_error = jnp.mean((y_pred.flatten() - y_test.flatten()) ** 2)
-    relative_error = jnp.linalg.norm(y_pred.flatten() - y_test.flatten()) / jnp.linalg.norm(y_test.flatten())
-    print(f'testing mse: {mse_error:.2e},relative: {relative_error:.2e}')
-
-    plt.figure(figsize=(10, 5))
-    plt.plot(x_test, y_test, 'r', label='exact solution')
-    plt.plot(x_test, y_pred, 'b-', label='SincKAN')
-    plt.title('Comparison of SincKAN')
-    plt.xlabel('x')
-    plt.ylabel('u')
-    plt.legend()
-    path = f'{args.datatype}_{args.network}_{args.seed}.png'
-    plt.savefig(path)
-
-
 if __name__ == "__main__":
     seed = args.seed
     np.random.seed(seed)
     key = random.PRNGKey(seed)
-    if args.mode == 'train':
-        train(key)
-    elif args.mode == 'eval':
-        eval(key)
+    train(key)

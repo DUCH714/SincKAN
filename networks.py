@@ -3,7 +3,6 @@ import jax
 from jax import random
 from jax.nn import gelu, silu, tanh
 import jax.numpy as jnp
-import numpy as np
 from utils import split_kanshape
 
 
@@ -21,8 +20,8 @@ def get_network(args, input_dim, output_dim, interval, normalizer, keys):
         model = KAN(features=features, interval=interval, degree=args.degree, normalizer=normalizer, key=keys[0])
     elif args.network == 'sinckan':
         features = split_kanshape(input_dim, output_dim, args.kanshape)
-        model = sincKAN(features=features, degree=args.degree, len_h=args.len_h, normalizer=normalizer,
-                        init_h=args.init_h, decay=args.decay, skip=args.skip, activation=args.activation,key=keys[0])
+        model = SincKAN(features=features, degree=args.degree, len_h=args.len_h, normalizer=normalizer,
+                        init_h=args.init_h, decay=args.decay, skip=args.skip, activation=args.activation,sinc_mode=args.sinc_mode,key=keys[0])
     elif args.network == 'chebykan':
         features = split_kanshape(input_dim, output_dim, args.kanshape)
         model = chebyKAN(features=features, degree=args.degree, normalizer=normalizer, key=keys[0])
@@ -167,15 +166,15 @@ class chebyKAN(eqx.Module):
         return frozen
 
 
-class sincKAN(eqx.Module):
+class SincKAN(eqx.Module):
     layers: list
     normalizer: list
 
-    def __init__(self, features, normalizer, key, degree, len_h, decay, init_h=4.0, activation='tanh', skip=True,
+    def __init__(self, features, normalizer, key, degree, len_h, decay, init_h=4.0, activation='tanh', skip=True, sinc_mode='vanilla',
                  initialization='None'):
         keys = random.split(key, len(features) + 1)
         self.layers = [SincLayers(f_in, f_out, degree, key, len_h=len_h, init_h=init_h, activation=activation,
-                                  decay=decay, skip=skip, initialization=initialization) for f_in, f_out, key in
+                                  decay=decay, skip=skip, initialization=initialization,sinc_mode=sinc_mode) for f_in, f_out, key in
                        zip(features[:-1], features[1:], keys)]
         self.normalizer = [normalizer]
 
@@ -310,9 +309,10 @@ class SincLayers(eqx.Module):
     activation: jax.nn
     skip: bool
     skip_mode: int
+    sinc_mode: str
 
     def __init__(self, input_dim, output_dim, degree, key, init_h, len_h=2, activation='tanh', decay='inverse',
-                 skip=True, initialization='None', skip_mode=1):
+                 skip=True, initialization='None', skip_mode=1, sinc_mode='vanilla'):
         self.degree = degree
         self.decay = decay
         keys = random.split(key, 2)
@@ -331,7 +331,7 @@ class SincLayers(eqx.Module):
         self.weight1 = jnp.zeros((1,))
         self.weight2 = jnp.ones((1,))
         self.skip_mode = skip_mode
-
+        self.sinc_mode = sinc_mode
         if activation == 'tanh':
             self.activation = tanh
         elif activation == 'sin':
@@ -353,8 +353,11 @@ class SincLayers(eqx.Module):
         k = frozen_para['k']
         h = frozen_para['h']
         x = x / h + k
-
-        x_interp = jnp.sinc(x)
+        if self.sinc_mode == 'vanilla':
+            x_interp = jnp.sinc(x)  
+        elif self.sinc_mode == 'taylor':
+            x_interp = 1.0 - (x ** 2) / 6.0 + (x ** 4) / 120.0 - (x ** 6) / 5040.0 + (x ** 8) / 362880.0 - (x ** 10) / 39916800.0
+            x_interp=x_interp*jnp.exp(-(1 / h / 2) ** 2)
 
         y = jnp.einsum("ikd,iokd->o", x_interp, self.coeffs)
         if self.skip:
