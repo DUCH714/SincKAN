@@ -9,7 +9,7 @@ anaconda:
 conda install -r environment.yml
 ```
 
-docker:
+docker (recommend):
 ```setupd
 docker pull ghcr.io/nvidia/jax:equinox
 ```
