@@ -222,5 +222,3 @@ if __name__ == "__main__":
     np.random.seed(seed)
     key = random.PRNGKey(seed)
     train(key)
-    npz_file = f'{args.datatype}_{args.network}_{args.seed}_{args.dim}.npz'
-    plot_three_pdfs(npz_file)
