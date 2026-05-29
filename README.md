@@ -1,5 +1,5 @@
 # Sinc Kolmogorov-Arnold Network
-This repository contains companion code for ["Sinc Kolmogorov-Arnold Network and Its Applications on Physics-informed Neural Networks"](https://arxiv.org/abs/2410.04096). We provide instructions for reproducing our experiments and plots.
+This repository contains companion code for ["Sinc Kolmogorov-Arnold network and its application for solving PDEs with singularities"](https://www.sciencedirect.com/science/article/abs/pii/S0893608026004934). We provide instructions for reproducing our experiments and plots.
 ## Requirements
 
 To install requirements:
